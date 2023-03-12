@@ -142,6 +142,14 @@ impl Memory {
             .ok_or("Invalid address".into())
     }
 
+    pub fn read_i8(&self, address: u16) -> Result<i8, Error> {
+        self.memory
+            .get(address as usize)
+            .copied()
+            .and_then(|n| Some(n as i8))
+            .ok_or("Invalid address".into())
+    }
+
     pub fn read_u16(&self, address: u16) -> Result<u16, Error> {
         let address = address as usize;
         let value_slice = self
@@ -154,6 +162,10 @@ impl Memory {
 
     pub fn write_u8(&mut self, address: u16, value: u8) {
         self.memory[address as usize] = value;
+    }
+
+    pub fn write_i8(&mut self, address: u16, value: i8) {
+        self.memory[address as usize] = value as u8;
     }
 
     pub fn write_u16(&mut self, address: u16, value: u16) {
@@ -174,6 +186,7 @@ pub enum AddressingMode {
     ZeroPage,
     ZeroPageX,
     ZeroPageY,
+    Relative,
     Absolute,
     AbsoluteX,
     AbsoluteY,
@@ -229,6 +242,12 @@ pub fn opcodes() -> Vec<Instruction> {
         Instruction::new(0x39, "AND", AddressingMode::AbsoluteY),
         Instruction::new(0x21, "AND", AddressingMode::IndirectX),
         Instruction::new(0x31, "AND", AddressingMode::IndirectY),
+        //      BCC
+        Instruction::new(0x90, "BCC", AddressingMode::Relative),
+        //      BCS
+        Instruction::new(0xB0, "BCS", AddressingMode::Relative),
+        //      BEQ
+        Instruction::new(0xF0, "BEQ", AddressingMode::Relative),
         //      LDA
         Instruction::new(0xA9, "LDA", AddressingMode::Immediate),
         Instruction::new(0xA5, "LDA", AddressingMode::ZeroPage),
@@ -283,6 +302,14 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
 
                 address = address.wrapping_add(cpu.y);
                 Ok(address as u16)
+            }
+            AddressingMode::Relative => {
+                let address = cpu.pc;
+                let value = memory.read_i8(address)?;
+                cpu.pc += 1;
+                log::info!("{} #{:+X}", operation, value);
+
+                Ok(address)
             }
             AddressingMode::Absolute => {
                 let address = memory.read_u16(cpu.pc)?;
@@ -403,28 +430,6 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     cpu.set_z(zero);
                     cpu.set_z(negative);
                 }
-                "ASL" => {
-                    let value = memory.read_u8(address)?;
-                    let result = value << 1;
-                    memory.write_u8(address, result);
-
-                    let carry = (value & 0b1000_0000) != 0;
-                    let zero = result == 0;
-                    let negative = (result as i8) < 0;
-                    cpu.set_c(carry);
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
-                }
-                "LDA" => {
-                    let value = memory.read_u8(address)?;
-                    cpu.a = value;
-
-                    let zero = value == 0;
-                    let negative = (value as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
-                }
-
                 "AND" => {
                     let value = memory.read_u8(address)?;
                     let acc = cpu.a;
@@ -436,7 +441,50 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     cpu.set_z(zero);
                     cpu.set_n(negative);
                 }
+                "ASL" => {
+                    // Shift bits left 1
+                    let value = memory.read_u8(address)?;
+                    let result = value << 1;
+                    memory.write_u8(address, result);
 
+                    let carry = (value & 0b1000_0000) != 0;
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    cpu.set_c(carry);
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "BCC" => {
+                    // Branch (add offset to pc) if carry flag is clear
+                    let offset = memory.read_i8(address)?;
+                    if !cpu.c() {
+                        cpu.pc = (cpu.pc as i16 + offset as i16) as u16
+                    }
+                }
+                "BCS" => {
+                    // Branch (add offset to pc) if carry flag is set
+                    let offset = memory.read_i8(address)?;
+                    if cpu.c() {
+                        cpu.pc = (cpu.pc as i16 + offset as i16) as u16
+                    }
+                }
+                "BEQ" => {
+                    // Branch (add offset to pc) if zero flag is set
+                    let offset = memory.read_i8(address)?;
+                    if cpu.z() {
+                        cpu.pc = (cpu.pc as i16 + offset as i16) as u16
+                    }
+                }
+                "LDA" => {
+                    // Load value to a register
+                    let value = memory.read_u8(address)?;
+                    cpu.a = value;
+
+                    let zero = value == 0;
+                    let negative = (value as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
                 operation => {
                     todo!("{:?}", operation)
                 }
