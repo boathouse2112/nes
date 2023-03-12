@@ -248,6 +248,9 @@ pub fn opcodes() -> Vec<Instruction> {
         Instruction::new(0xB0, "BCS", AddressingMode::Relative),
         //      BEQ
         Instruction::new(0xF0, "BEQ", AddressingMode::Relative),
+        //      BIT
+        Instruction::new(0x24, "BIT", AddressingMode::ZeroPage),
+        Instruction::new(0x2C, "BIT", AddressingMode::Absolute),
         //      LDA
         Instruction::new(0xA9, "LDA", AddressingMode::Immediate),
         Instruction::new(0xA5, "LDA", AddressingMode::ZeroPage),
@@ -474,6 +477,18 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     if cpu.z() {
                         cpu.pc = (cpu.pc as i16 + offset as i16) as u16
                     }
+                }
+                "BIT" => {
+                    // Set zero flag to (A AND value) == 0
+                    let value = memory.read_u8(address)?;
+                    let result = cpu.a & value;
+
+                    let zero = result == 0;
+                    let overflow = (result & 0b0100_0000) != 0; // Yeah, overflow is set to bit 6. Idk.
+                    let negative = (result & 0b1000_0000) != 0;
+                    cpu.set_z(zero);
+                    cpu.set_v(overflow);
+                    cpu.set_n(negative);
                 }
                 "LDA" => {
                     // Load value to a register
