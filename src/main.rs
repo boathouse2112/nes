@@ -1,3 +1,4 @@
+#![feature(bigint_helper_methods)]
 use std::{error, ops::Add};
 
 use simple_logger::SimpleLogger;
@@ -205,6 +206,15 @@ pub fn opcodes() -> Vec<Instruction> {
         Instruction::new(0xE8, "INX", AddressingMode::None),
         Instruction::new(0xAA, "TAX", AddressingMode::None),
         // Other addressing modes
+        //      ADC
+        Instruction::new(0x69, "ADC", AddressingMode::Immediate),
+        Instruction::new(0x65, "ADC", AddressingMode::ZeroPage),
+        Instruction::new(0x75, "ADC", AddressingMode::ZeroPageX),
+        Instruction::new(0x6D, "ADC", AddressingMode::Absolute),
+        Instruction::new(0x7D, "ADC", AddressingMode::AbsoluteX),
+        Instruction::new(0x79, "ADC", AddressingMode::AbsoluteY),
+        Instruction::new(0x61, "ADC", AddressingMode::IndirectX),
+        Instruction::new(0x71, "ADC", AddressingMode::IndirectY),
         //      ASL
         Instruction::new(0x06, "ASL", AddressingMode::ZeroPage),
         Instruction::new(0x16, "ASL", AddressingMode::ZeroPageX),
@@ -379,6 +389,20 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
             )?;
 
             match instruction.operation {
+                "ADC" => {
+                    let acc_value = cpu.a;
+                    let memory_value = memory.read_u8(address)?;
+                    let carry = cpu.c();
+
+                    let (result, result_carry) = acc_value.carrying_add(memory_value, carry);
+                    cpu.a = result;
+
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    cpu.set_c(result_carry);
+                    cpu.set_z(zero);
+                    cpu.set_z(negative);
+                }
                 "ASL" => {
                     let value = memory.read_u8(address)?;
                     let result = value << 1;
