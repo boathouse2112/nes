@@ -10,7 +10,7 @@ struct Cpu {
     pub a: u8,
     pub x: u8,
     pub y: u8,
-    pub p: u8,
+    pub flags: u8,
 }
 
 impl Cpu {
@@ -21,41 +21,41 @@ impl Cpu {
             a: 0,
             x: 0,
             y: 0,
-            p: 0,
+            flags: 0,
         }
     }
 
-    pub fn c(self) -> u8 {
-        self.p & 0b0000_0001
+    pub fn c(&self) -> bool {
+        (self.flags & 0b0000_0001) != 0
     }
 
-    pub fn z(self) -> u8 {
-        self.p & 0b0000_0010
+    pub fn z(&self) -> bool {
+        (self.flags & 0b0000_0010) != 0
     }
 
-    pub fn i(self) -> u8 {
-        self.p & 0b0000_0100
+    pub fn i(&self) -> bool {
+        (self.flags & 0b0000_0100) != 0
     }
 
-    pub fn d(self) -> u8 {
-        self.p & 0b0000_1000
+    pub fn d(&self) -> bool {
+        (self.flags & 0b0000_1000) != 0
     }
 
-    pub fn b(self) -> u8 {
-        self.p & 0b0001_0000
+    pub fn b(&self) -> bool {
+        (self.flags & 0b0001_0000) != 0
     }
 
-    pub fn v(self) -> u8 {
-        self.p & 0b0100_0000
+    pub fn v(&self) -> bool {
+        (self.flags & 0b0100_0000) != 0
     }
 
-    pub fn n(self) -> u8 {
-        self.p & 0b1000_0000
+    pub fn n(&self) -> bool {
+        (self.flags & 0b1000_0000) != 0
     }
 
     pub fn set_c(&mut self, c: bool) {
-        let flags = self.p;
-        self.p = if c {
+        let flags = self.flags;
+        self.flags = if c {
             flags | 0b0000_0001
         } else {
             flags & 0b1111_1110
@@ -63,8 +63,8 @@ impl Cpu {
     }
 
     pub fn set_z(&mut self, z: bool) {
-        let flags = self.p;
-        self.p = if z {
+        let flags = self.flags;
+        self.flags = if z {
             flags | 0b0000_0010
         } else {
             flags & 0b1111_1101
@@ -72,8 +72,8 @@ impl Cpu {
     }
 
     pub fn set_i(&mut self, i: bool) {
-        let flags = self.p;
-        self.p = if i {
+        let flags = self.flags;
+        self.flags = if i {
             flags | 0b0000_0100
         } else {
             flags & 0b1111_1011
@@ -81,8 +81,8 @@ impl Cpu {
     }
 
     pub fn set_d(&mut self, d: bool) {
-        let flags = self.p;
-        self.p = if d {
+        let flags = self.flags;
+        self.flags = if d {
             flags | 0b0000_1000
         } else {
             flags & 0b1111_0111
@@ -90,8 +90,8 @@ impl Cpu {
     }
 
     pub fn set_b(&mut self, b: bool) {
-        let flags = self.p;
-        self.p = if b {
+        let flags = self.flags;
+        self.flags = if b {
             flags | 0b0001_0000
         } else {
             flags & 0b1110_1111
@@ -99,8 +99,8 @@ impl Cpu {
     }
 
     pub fn set_v(&mut self, v: bool) {
-        let flags = self.p;
-        self.p = if v {
+        let flags = self.flags;
+        self.flags = if v {
             flags | 0b0100_0000
         } else {
             flags & 0b1011_1111
@@ -108,8 +108,8 @@ impl Cpu {
     }
 
     pub fn set_n(&mut self, n: bool) {
-        let flags = self.p;
-        self.p = if n {
+        let flags = self.flags;
+        self.flags = if n {
             flags | 0b1000_0000
         } else {
             flags & 0b0111_1111
@@ -204,6 +204,16 @@ pub fn opcodes() -> Vec<Instruction> {
         Instruction::new(0xE8, "INX", AddressingMode::Implied),
         Instruction::new(0xAA, "TAX", AddressingMode::Implied),
         // Other addressing modes
+        //      AND
+        Instruction::new(0x29, "AND", AddressingMode::Immediate),
+        Instruction::new(0x25, "AND", AddressingMode::ZeroPage),
+        Instruction::new(0x35, "AND", AddressingMode::ZeroPageX),
+        Instruction::new(0x2D, "AND", AddressingMode::Absolute),
+        Instruction::new(0x3D, "AND", AddressingMode::AbsoluteX),
+        Instruction::new(0x39, "AND", AddressingMode::AbsoluteY),
+        Instruction::new(0x21, "AND", AddressingMode::IndirectX),
+        Instruction::new(0x31, "AND", AddressingMode::IndirectY),
+        //      LDA
         Instruction::new(0xA9, "LDA", AddressingMode::Immediate),
         Instruction::new(0xA5, "LDA", AddressingMode::ZeroPage),
         Instruction::new(0xB5, "LDA", AddressingMode::ZeroPageX),
@@ -359,6 +369,17 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     cpu.set_n(negative);
                 }
 
+                "AND" => {
+                    let acc = cpu.a;
+                    let result = acc & value;
+                    cpu.a = result;
+
+                    let zero = result == 0;
+                    let negative = (value as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+
                 operation => {
                     todo!("{:?}", operation)
                 }
@@ -367,6 +388,64 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod cpu_tests {
+    use crate::Cpu;
+    #[test]
+    fn read_flag_functions_read_flags_correctly() {
+        let mut cpu = Cpu::new();
+
+        // Flags are initialized to false
+        assert!(!cpu.c());
+        assert!(!cpu.z());
+        assert!(!cpu.i());
+        assert!(!cpu.d());
+        assert!(!cpu.b());
+        assert!(!cpu.v());
+        assert!(!cpu.n());
+
+        cpu.flags = 0b1010_1010;
+
+        assert!(!cpu.c());
+        assert!(cpu.z());
+        assert!(!cpu.i());
+        assert!(cpu.d());
+        assert!(!cpu.b());
+        assert!(!cpu.v());
+        assert!(cpu.n());
+    }
+
+    #[test]
+    fn set_flag_functions_set_flags_correctly() {
+        let mut cpu = Cpu::new();
+
+        // Flags are initialized to false
+        assert!(!cpu.c());
+        assert!(!cpu.z());
+        assert!(!cpu.i());
+        assert!(!cpu.d());
+        assert!(!cpu.b());
+        assert!(!cpu.v());
+        assert!(!cpu.n());
+
+        cpu.set_c(true);
+        cpu.set_z(true);
+        cpu.set_i(true);
+        cpu.set_d(true);
+        cpu.set_b(true);
+        cpu.set_v(true);
+        cpu.set_n(true);
+
+        assert!(cpu.c());
+        assert!(cpu.z());
+        assert!(cpu.i());
+        assert!(cpu.d());
+        assert!(cpu.b());
+        assert!(cpu.v());
+        assert!(cpu.n());
+    }
 }
 
 #[cfg(test)]
@@ -531,7 +610,7 @@ mod instruction_tests {
     }
 
     #[test]
-    fn indirect_x_loads_from_memory() -> Result<(), Error> {
+    fn lda_indirect_x_loads_from_memory() -> Result<(), Error> {
         let mut console = Console {
             cpu: Cpu::new(),
             memory: Memory::new(),
@@ -555,7 +634,7 @@ mod instruction_tests {
     }
 
     #[test]
-    fn indirect_y_loads_from_memory() -> Result<(), Error> {
+    fn lda_indirect_y_loads_from_memory() -> Result<(), Error> {
         let mut console = Console {
             cpu: Cpu::new(),
             memory: Memory::new(),
@@ -575,6 +654,45 @@ mod instruction_tests {
 
         assert_eq!(console.cpu.pc, 0x8002);
         assert_eq!(console.cpu.a, 0xCD);
+        Ok(())
+    }
+
+    #[test]
+    fn lda_sets_flags_correctly() -> Result<(), Error> {
+        let mut console = Console {
+            cpu: Cpu::new(),
+            memory: Memory::new(),
+        };
+        let opcodes = opcodes();
+        let program = vec![
+            0xA9, // LDA #$20
+            0x20, //
+            0xA9, // LDA #$00
+            0x00, //
+            0xA9, // LDA #$(-10 as u8)
+            ((-10 as i8) as u8),
+        ];
+
+        console.memory.load_rom(program);
+
+        step(&mut console, &opcodes)?;
+        assert_eq!(console.cpu.pc, 0x8002);
+        assert_eq!(console.cpu.a, 0x20);
+        assert!(!console.cpu.z()); // Not zero
+        assert!(!console.cpu.n()); // Not negative
+
+        step(&mut console, &opcodes)?;
+        assert_eq!(console.cpu.pc, 0x8004);
+        assert_eq!(console.cpu.a, 0x00);
+        assert!(console.cpu.z()); // Is zero
+        assert!(!console.cpu.n()); // Not negative
+
+        step(&mut console, &opcodes)?;
+        assert_eq!(console.cpu.pc, 0x8006);
+        assert_eq!(console.cpu.a, ((-10 as i8) as u8));
+        assert!(!console.cpu.z()); // Not Zero
+        assert!(console.cpu.n()); // Is negative
+
         Ok(())
     }
 }
