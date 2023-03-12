@@ -179,7 +179,7 @@ pub enum AddressingMode {
     Indirect,
     IndirectX,
     IndirectY,
-    Implied,
+    None,
 }
 
 pub struct Instruction {
@@ -201,9 +201,15 @@ impl Instruction {
 pub fn opcodes() -> Vec<Instruction> {
     vec![
         // Implied addressing mode
-        Instruction::new(0xE8, "INX", AddressingMode::Implied),
-        Instruction::new(0xAA, "TAX", AddressingMode::Implied),
+        Instruction::new(0x0A, "ASL", AddressingMode::None),
+        Instruction::new(0xE8, "INX", AddressingMode::None),
+        Instruction::new(0xAA, "TAX", AddressingMode::None),
         // Other addressing modes
+        //      ASL
+        Instruction::new(0x06, "ASL", AddressingMode::ZeroPage),
+        Instruction::new(0x16, "ASL", AddressingMode::ZeroPageX),
+        Instruction::new(0x0E, "ASL", AddressingMode::Absolute),
+        Instruction::new(0x1E, "ASL", AddressingMode::AbsoluteX),
         //      AND
         Instruction::new(0x29, "AND", AddressingMode::Immediate),
         Instruction::new(0x25, "AND", AddressingMode::ZeroPage),
@@ -323,17 +329,29 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
         .unwrap();
 
     match instruction.addressing_mode {
-        AddressingMode::Implied => {
+        AddressingMode::None => {
             // Execute immediately.
             log::info!("{}", instruction.operation);
 
             match instruction.operation {
-                "INX" => {
-                    let value = cpu.x + 1;
-                    cpu.x = value;
+                "ASL" => {
+                    let value = cpu.a;
+                    let result = value << 1;
+                    cpu.a = result;
 
-                    let zero = value == 0;
-                    let negative = (value as i8) < 0;
+                    let carry = (value & 0b1000_0000) != 0;
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    cpu.set_c(carry);
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "INX" => {
+                    let result = cpu.x + 1;
+                    cpu.x = result;
+
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
                     cpu.set_z(zero);
                     cpu.set_n(negative);
                 }
@@ -361,6 +379,18 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
             )?;
 
             match instruction.operation {
+                "ASL" => {
+                    let value = memory.read_u8(address)?;
+                    let result = value << 1;
+                    memory.write_u8(address, result);
+
+                    let carry = (value & 0b1000_0000) != 0;
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    cpu.set_c(carry);
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
                 "LDA" => {
                     let value = memory.read_u8(address)?;
                     cpu.a = value;
@@ -553,7 +583,8 @@ mod instruction_tests {
         let opcodes = opcodes();
         let program = vec![
             0xAD, // LDA $ABCD     ;$8000
-            0xCD, 0xAB,
+            0xCD, //
+            0xAB, //
         ];
 
         console.memory.write_u8(0xABCD, 0x11); // Set the value to read from $ABCD
@@ -575,7 +606,8 @@ mod instruction_tests {
         let opcodes = opcodes();
         let program = vec![
             0xBD, // LDA $F000,X     ;$8000
-            0x00, 0xF0,
+            0x00, //
+            0xF0, //
         ];
 
         console.cpu.x = 0x22;
@@ -598,7 +630,8 @@ mod instruction_tests {
         let opcodes = opcodes();
         let program = vec![
             0xB9, // LDA $F000,Y     ;$8000
-            0x00, 0xF0,
+            0x00, //
+            0xF0, //
         ];
 
         console.cpu.y = 0x22;
@@ -696,6 +729,38 @@ mod instruction_tests {
         assert!(!console.cpu.z()); // Not Zero
         assert!(console.cpu.n()); // Is negative
 
+        Ok(())
+    }
+
+    #[test]
+    fn asl_works() -> Result<(), Error> {
+        let mut console = Console {
+            cpu: Cpu::new(),
+            memory: Memory::new(),
+        };
+        let opcodes = opcodes();
+        let program = vec![
+            0x0A, // ASL A
+            0x06, // ASL $20
+            0x20, //
+        ];
+
+        console.cpu.a = 0b1000_0000;
+        console.memory.write_u8(0x20, 0b0100_0000);
+        console.memory.load_rom(program);
+
+        step(&mut console, &opcodes)?;
+        assert_eq!(console.cpu.a, 0);
+        assert!(console.cpu.c());
+        assert!(console.cpu.z());
+        assert!(!console.cpu.n());
+
+        step(&mut console, &opcodes)?;
+        let result = console.memory.read_u8(0x20)?;
+        assert_eq!(result, 0b1000_0000);
+        assert!(!console.cpu.c());
+        assert!(!console.cpu.z());
+        assert!(console.cpu.n());
         Ok(())
     }
 }
