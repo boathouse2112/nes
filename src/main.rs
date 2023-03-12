@@ -211,6 +211,7 @@ pub fn opcodes() -> Vec<Instruction> {
         Instruction::new(0xBD, "LDA", AddressingMode::AbsoluteX),
         Instruction::new(0xB9, "LDA", AddressingMode::AbsoluteY),
         Instruction::new(0xA1, "LDA", AddressingMode::IndirectX),
+        Instruction::new(0xB1, "LDA", AddressingMode::IndirectY),
     ]
 }
 
@@ -290,7 +291,7 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                 memory.read_u8(address)
             }
             AddressingMode::IndirectY => {
-                let mut indirect_address = memory.read_u8(cpu.pc)?;
+                let indirect_address = memory.read_u8(cpu.pc)?;
                 cpu.pc += 1;
                 log::info!("{} (${:X}),Y", operation, indirect_address);
 
@@ -370,10 +371,10 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
 
 #[cfg(test)]
 mod instruction_tests {
-    use crate::{opcodes, step, Console, Cpu, Memory};
+    use crate::{opcodes, step, Console, Cpu, Error, Memory};
 
     #[test]
-    fn lda_immediate() {
+    fn lda_immediate_loads_immediate_value() -> Result<(), Error> {
         let mut console = Console {
             cpu: Cpu::new(),
             memory: Memory::new(),
@@ -386,10 +387,195 @@ mod instruction_tests {
 
         // Running 1 step should move PC forward 2, and load the immediate value.
         console.memory.load_rom(program);
-        step(&mut console, &opcodes);
+        step(&mut console, &opcodes)?;
 
         assert_eq!(console.cpu.pc, 0x8002);
         assert_eq!(console.cpu.a, 0xFF);
+        Ok(())
+    }
+
+    #[test]
+    fn lda_zero_page_loads_from_memory() -> Result<(), Error> {
+        let mut console = Console {
+            cpu: Cpu::new(),
+            memory: Memory::new(),
+        };
+        let opcodes = opcodes();
+        let program = vec![
+            0xA5, // LDA $FF     ;$8000
+            0xFF,
+        ];
+
+        console.memory.write_u8(0xFF, 0xAB); // Set the value to read from $FF
+        console.memory.load_rom(program);
+
+        step(&mut console, &opcodes)?;
+
+        assert_eq!(console.cpu.pc, 0x8002);
+        assert_eq!(console.cpu.a, 0xAB);
+        Ok(())
+    }
+
+    #[test]
+    fn lda_zero_page_x_loads_from_memory() -> Result<(), Error> {
+        let mut console = Console {
+            cpu: Cpu::new(),
+            memory: Memory::new(),
+        };
+        let opcodes = opcodes();
+        let program = vec![
+            0xB5, // LDA $F0,X     ;$8000
+            0xF0,
+        ];
+
+        console.cpu.x = 0x08; // Set X offset
+        console.memory.write_u8(0xF8, 0xAB); // Set the value to read from $F0 + x
+        console.memory.load_rom(program);
+
+        step(&mut console, &opcodes)?;
+
+        assert_eq!(console.cpu.pc, 0x8002);
+        assert_eq!(console.cpu.a, 0xAB);
+        Ok(())
+    }
+
+    #[test]
+    fn lda_zero_page_x_wraps_if_greater_than_0xff() -> Result<(), Error> {
+        let mut console = Console {
+            cpu: Cpu::new(),
+            memory: Memory::new(),
+        };
+        let opcodes = opcodes();
+        let program = vec![
+            0xB5, // LDA $F0,X     ;$8000
+            0xFF,
+        ];
+
+        console.cpu.x = 0x10; // Set X offset
+        console.memory.write_u8(0x0F, 0xAB); // Set the value to read from $FF + x
+        console.memory.load_rom(program);
+
+        step(&mut console, &opcodes)?;
+
+        assert_eq!(console.cpu.pc, 0x8002);
+        assert_eq!(console.cpu.a, 0xAB);
+        Ok(())
+    }
+
+    #[test]
+    fn lda_absolute_loads_from_memory() -> Result<(), Error> {
+        let mut console = Console {
+            cpu: Cpu::new(),
+            memory: Memory::new(),
+        };
+        let opcodes = opcodes();
+        let program = vec![
+            0xAD, // LDA $ABCD     ;$8000
+            0xCD, 0xAB,
+        ];
+
+        console.memory.write_u8(0xABCD, 0x11); // Set the value to read from $ABCD
+        console.memory.load_rom(program);
+
+        step(&mut console, &opcodes)?;
+
+        assert_eq!(console.cpu.pc, 0x8003);
+        assert_eq!(console.cpu.a, 0x11);
+        Ok(())
+    }
+
+    #[test]
+    fn lda_absolute_x_loads_from_memory() -> Result<(), Error> {
+        let mut console = Console {
+            cpu: Cpu::new(),
+            memory: Memory::new(),
+        };
+        let opcodes = opcodes();
+        let program = vec![
+            0xBD, // LDA $F000,X     ;$8000
+            0x00, 0xF0,
+        ];
+
+        console.cpu.x = 0x22;
+        console.memory.write_u8(0xF022, 0xAB); // Set the value to read from $F000 + 0x22
+        console.memory.load_rom(program);
+
+        step(&mut console, &opcodes)?;
+
+        assert_eq!(console.cpu.pc, 0x8003);
+        assert_eq!(console.cpu.a, 0xAB);
+        Ok(())
+    }
+
+    #[test]
+    fn lda_absolute_y_loads_from_memory() -> Result<(), Error> {
+        let mut console = Console {
+            cpu: Cpu::new(),
+            memory: Memory::new(),
+        };
+        let opcodes = opcodes();
+        let program = vec![
+            0xB9, // LDA $F000,Y     ;$8000
+            0x00, 0xF0,
+        ];
+
+        console.cpu.y = 0x22;
+        console.memory.write_u8(0xF022, 0xAB); // Set the value to read from $F000 + 0x22
+        console.memory.load_rom(program);
+
+        step(&mut console, &opcodes)?;
+
+        assert_eq!(console.cpu.pc, 0x8003);
+        assert_eq!(console.cpu.a, 0xAB);
+        Ok(())
+    }
+
+    #[test]
+    fn indirect_x_loads_from_memory() -> Result<(), Error> {
+        let mut console = Console {
+            cpu: Cpu::new(),
+            memory: Memory::new(),
+        };
+        let opcodes = opcodes();
+        let program = vec![
+            0xA1, // LDA ($20,X)     ;$8000
+            0x20,
+        ];
+
+        console.cpu.x = 0x08;
+        console.memory.write_u8(0x28, 0xAB); // Set the destination to read from ($20 + 0x08)
+        console.memory.write_u8(0xAB, 0xCD);
+        console.memory.load_rom(program);
+
+        step(&mut console, &opcodes)?;
+
+        assert_eq!(console.cpu.pc, 0x8002);
+        assert_eq!(console.cpu.a, 0xCD);
+        Ok(())
+    }
+
+    #[test]
+    fn indirect_y_loads_from_memory() -> Result<(), Error> {
+        let mut console = Console {
+            cpu: Cpu::new(),
+            memory: Memory::new(),
+        };
+        let opcodes = opcodes();
+        let program = vec![
+            0xB1, // LDA ($20),Y     ;$8000
+            0x20,
+        ];
+
+        console.cpu.y = 0x08;
+        console.memory.write_u8(0x20, 0xF0); // Set the destination to read from $20
+        console.memory.write_u8(0xF8, 0xCD); // Set the value to read from $F0 + 0x08
+        console.memory.load_rom(program);
+
+        step(&mut console, &opcodes)?;
+
+        assert_eq!(console.cpu.pc, 0x8002);
+        assert_eq!(console.cpu.a, 0xCD);
+        Ok(())
     }
 }
 
