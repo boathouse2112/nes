@@ -230,26 +230,27 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
     cpu.pc += 1;
 
     // Logs instruction name
-    fn read_value(
+    fn read_address(
         cpu: &mut Cpu,
         memory: &mut Memory,
         mode: AddressingMode,
         operation: &str,
-    ) -> Result<u8, Error> {
+    ) -> Result<u16, Error> {
         match mode {
             AddressingMode::Immediate => {
-                let value = memory.read_u8(cpu.pc)?;
+                let address = cpu.pc;
+                let value = memory.read_u8(address)?;
                 cpu.pc += 1;
                 log::info!("{} #{:X}", operation, value);
 
-                Ok(value)
+                Ok(address)
             }
             AddressingMode::ZeroPage => {
                 let address = memory.read_u8(cpu.pc)?;
                 cpu.pc += 1;
                 log::info!("{} ${:X}", operation, address);
 
-                memory.read_u8(address as u16)
+                Ok(address as u16)
             }
             AddressingMode::ZeroPageX => {
                 let mut address = memory.read_u8(cpu.pc)?;
@@ -257,7 +258,7 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                 log::info!("{} ${:X},X", operation, address);
 
                 address = address.wrapping_add(cpu.x);
-                memory.read_u8(address as u16)
+                Ok(address as u16)
             }
             AddressingMode::ZeroPageY => {
                 let mut address = memory.read_u8(cpu.pc)?;
@@ -265,14 +266,14 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                 log::info!("{} ${:X},Y", operation, address);
 
                 address = address.wrapping_add(cpu.y);
-                memory.read_u8(address as u16)
+                Ok(address as u16)
             }
             AddressingMode::Absolute => {
                 let address = memory.read_u16(cpu.pc)?;
                 cpu.pc += 2;
                 log::info!("{} ${:X}", operation, address);
 
-                memory.read_u8(address)
+                Ok(address)
             }
             AddressingMode::AbsoluteX => {
                 let mut address = memory.read_u16(cpu.pc)?;
@@ -280,7 +281,7 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                 log::info!("{} ${:X},X", operation, address);
 
                 address = address.wrapping_add(cpu.x as u16);
-                memory.read_u8(address)
+                Ok(address)
             }
             AddressingMode::AbsoluteY => {
                 let mut address = memory.read_u16(cpu.pc)?;
@@ -288,7 +289,7 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                 log::info!("{} ${:X},Y", operation, address);
 
                 address = address.wrapping_add(cpu.y as u16);
-                memory.read_u8(address)
+                Ok(address)
             }
             AddressingMode::IndirectX => {
                 let mut indirect_address = memory.read_u8(cpu.pc)?;
@@ -298,7 +299,7 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                 // Read the final address from memory[indirect_address + x]
                 indirect_address = indirect_address.wrapping_add(cpu.x);
                 let address = memory.read_u16(indirect_address as u16)?;
-                memory.read_u8(address)
+                Ok(address)
             }
             AddressingMode::IndirectY => {
                 let indirect_address = memory.read_u8(cpu.pc)?;
@@ -308,7 +309,7 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                 // The final address is (memory[indirect_address]) + y
                 let mut address = memory.read_u16(indirect_address as u16)?;
                 address = address.wrapping_add(cpu.y as u16);
-                memory.read_u8(address)
+                Ok(address)
             }
             _ => {
                 panic!()
@@ -352,7 +353,7 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
         }
         // Load a value based on the addressing mode, and then execute
         _ => {
-            let value = read_value(
+            let address = read_address(
                 cpu,
                 memory,
                 instruction.addressing_mode,
@@ -361,6 +362,7 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
 
             match instruction.operation {
                 "LDA" => {
+                    let value = memory.read_u8(address)?;
                     cpu.a = value;
 
                     let zero = value == 0;
@@ -370,6 +372,7 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                 }
 
                 "AND" => {
+                    let value = memory.read_u8(address)?;
                     let acc = cpu.a;
                     let result = acc & value;
                     cpu.a = result;
