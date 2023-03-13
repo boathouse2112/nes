@@ -221,6 +221,8 @@ pub fn opcodes() -> Vec<Instruction> {
         Instruction::new(0xD8, "CLD", AddressingMode::None),
         Instruction::new(0x58, "CLI", AddressingMode::None),
         Instruction::new(0xB8, "CLV", AddressingMode::None),
+        Instruction::new(0xCA, "DEX", AddressingMode::None),
+        Instruction::new(0x88, "DEY", AddressingMode::None),
         Instruction::new(0xE8, "INX", AddressingMode::None),
         Instruction::new(0xAA, "TAX", AddressingMode::None),
         // Other addressing modes
@@ -283,6 +285,11 @@ pub fn opcodes() -> Vec<Instruction> {
         Instruction::new(0xC0, "CPY", AddressingMode::Immediate),
         Instruction::new(0xC4, "CPY", AddressingMode::ZeroPage),
         Instruction::new(0xCC, "CPY", AddressingMode::Absolute),
+        //      DEC
+        Instruction::new(0xC0, "DEC", AddressingMode::ZeroPage),
+        Instruction::new(0xC4, "DEC", AddressingMode::ZeroPageX),
+        Instruction::new(0xCC, "DEC", AddressingMode::Absolute),
+        Instruction::new(0xCC, "DEC", AddressingMode::AbsoluteX),
         //      LDA
         Instruction::new(0xA9, "LDA", AddressingMode::Immediate),
         Instruction::new(0xA5, "LDA", AddressingMode::ZeroPage),
@@ -438,6 +445,28 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     // Clear carry flag
                     cpu.set_v(false);
                 }
+                "DEX" => {
+                    // Decrement X
+                    let value = cpu.x;
+                    let result = value - 1;
+                    cpu.x = result;
+
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "DEY" => {
+                    // Decrement Y
+                    let value = cpu.y;
+                    let result = value - 1;
+                    cpu.y = result;
+
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
                 "INX" => {
                     let result = cpu.x + 1;
                     cpu.x = result;
@@ -585,7 +614,7 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
 
                     let carry = acc > value;
                     let zero = acc == value;
-                    let negative = (result & 0b1000_0000) != 0;
+                    let negative = (result as i8) < 0;
                     cpu.set_c(carry);
                     cpu.set_z(zero);
                     cpu.set_n(negative);
@@ -598,7 +627,7 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
 
                     let carry = x > value;
                     let zero = x == value;
-                    let negative = (result & 0b1000_0000) != 0;
+                    let negative = (result as i8) < 0;
                     cpu.set_c(carry);
                     cpu.set_z(zero);
                     cpu.set_n(negative);
@@ -611,8 +640,19 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
 
                     let carry = y > value;
                     let zero = y == value;
-                    let negative = (result & 0b1000_0000) != 0;
+                    let negative = (result as i8) < 0;
                     cpu.set_c(carry);
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "DEC" => {
+                    // Decrement memory
+                    let value = memory.read_u8(address)?;
+                    let result = value - 1;
+                    memory.write_u8(address, result);
+
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
                     cpu.set_z(zero);
                     cpu.set_n(negative);
                 }
