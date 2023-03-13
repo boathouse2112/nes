@@ -217,6 +217,10 @@ pub fn opcodes() -> Vec<Instruction> {
         // Implied addressing mode
         Instruction::new(0x0A, "ASL", AddressingMode::None),
         Instruction::new(0x00, "BRK", AddressingMode::None),
+        Instruction::new(0x18, "CLC", AddressingMode::None),
+        Instruction::new(0xD8, "CLD", AddressingMode::None),
+        Instruction::new(0x58, "CLI", AddressingMode::None),
+        Instruction::new(0xB8, "CLV", AddressingMode::None),
         Instruction::new(0xE8, "INX", AddressingMode::None),
         Instruction::new(0xAA, "TAX", AddressingMode::None),
         // Other addressing modes
@@ -400,6 +404,22 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                 "BRK" => {
                     todo!("PC and processor status are pushed to stack?");
                     // cpu.set_b(true);
+                }
+                "CLC" => {
+                    // Clear carry flag
+                    cpu.set_c(false);
+                }
+                "CLD" => {
+                    // Clear carry flag
+                    cpu.set_d(false);
+                }
+                "CLI" => {
+                    // Clear carry flag
+                    cpu.set_i(false);
+                }
+                "CLV" => {
+                    // Clear carry flag
+                    cpu.set_v(false);
                 }
                 "INX" => {
                     let result = cpu.x + 1;
