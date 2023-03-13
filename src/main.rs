@@ -216,6 +216,7 @@ pub fn opcodes() -> Vec<Instruction> {
     vec![
         // Implied addressing mode
         Instruction::new(0x0A, "ASL", AddressingMode::None),
+        Instruction::new(0x00, "BRK", AddressingMode::None),
         Instruction::new(0xE8, "INX", AddressingMode::None),
         Instruction::new(0xAA, "TAX", AddressingMode::None),
         // Other addressing modes
@@ -251,10 +252,16 @@ pub fn opcodes() -> Vec<Instruction> {
         //      BIT
         Instruction::new(0x24, "BIT", AddressingMode::ZeroPage),
         Instruction::new(0x2C, "BIT", AddressingMode::Absolute),
+        //      BMI
+        Instruction::new(0x30, "BMI", AddressingMode::Relative),
         //      BNE
         Instruction::new(0xD0, "BEQ", AddressingMode::Relative),
-        //      BNE
+        //      BPL
         Instruction::new(0x10, "BPL", AddressingMode::Relative),
+        //      BVC
+        Instruction::new(0x50, "BVC", AddressingMode::Relative),
+        //      BVS
+        Instruction::new(0x70, "BVS", AddressingMode::Relative),
         //      LDA
         Instruction::new(0xA9, "LDA", AddressingMode::Immediate),
         Instruction::new(0xA5, "LDA", AddressingMode::ZeroPage),
@@ -390,6 +397,10 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     cpu.set_z(zero);
                     cpu.set_n(negative);
                 }
+                "BRK" => {
+                    todo!("PC and processor status are pushed to stack?");
+                    // cpu.set_b(true);
+                }
                 "INX" => {
                     let result = cpu.x + 1;
                     cpu.x = result;
@@ -494,6 +505,13 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     cpu.set_v(overflow);
                     cpu.set_n(negative);
                 }
+                "BMI" => {
+                    // Branch if negative flag is set
+                    let offset = memory.read_i8(address)?;
+                    if cpu.n() {
+                        cpu.pc = (cpu.pc as i16 + offset as i16) as u16
+                    }
+                }
                 "BNE" => {
                     // Branch if zero flag is clear
                     let offset = memory.read_i8(address)?;
@@ -505,6 +523,20 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     // Branch if negative flag is clear
                     let offset = memory.read_i8(address)?;
                     if !cpu.n() {
+                        cpu.pc = (cpu.pc as i16 + offset as i16) as u16
+                    }
+                }
+                "BVC" => {
+                    // Branch if overflow flag is clear
+                    let offset = memory.read_i8(address)?;
+                    if !cpu.v() {
+                        cpu.pc = (cpu.pc as i16 + offset as i16) as u16
+                    }
+                }
+                "BVS" => {
+                    // Branch if overflow flag is set
+                    let offset = memory.read_i8(address)?;
+                    if cpu.n() {
                         cpu.pc = (cpu.pc as i16 + offset as i16) as u16
                     }
                 }
