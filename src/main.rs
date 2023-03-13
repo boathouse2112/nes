@@ -251,6 +251,10 @@ pub fn opcodes() -> Vec<Instruction> {
         //      BIT
         Instruction::new(0x24, "BIT", AddressingMode::ZeroPage),
         Instruction::new(0x2C, "BIT", AddressingMode::Absolute),
+        //      BNE
+        Instruction::new(0xD0, "BEQ", AddressingMode::Relative),
+        //      BNE
+        Instruction::new(0x10, "BPL", AddressingMode::Relative),
         //      LDA
         Instruction::new(0xA9, "LDA", AddressingMode::Immediate),
         Instruction::new(0xA5, "LDA", AddressingMode::ZeroPage),
@@ -465,14 +469,14 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     }
                 }
                 "BCS" => {
-                    // Branch (add offset to pc) if carry flag is set
+                    // Branch if carry flag is set
                     let offset = memory.read_i8(address)?;
                     if cpu.c() {
                         cpu.pc = (cpu.pc as i16 + offset as i16) as u16
                     }
                 }
                 "BEQ" => {
-                    // Branch (add offset to pc) if zero flag is set
+                    // Branch if zero flag is set
                     let offset = memory.read_i8(address)?;
                     if cpu.z() {
                         cpu.pc = (cpu.pc as i16 + offset as i16) as u16
@@ -489,6 +493,20 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     cpu.set_z(zero);
                     cpu.set_v(overflow);
                     cpu.set_n(negative);
+                }
+                "BNE" => {
+                    // Branch if zero flag is clear
+                    let offset = memory.read_i8(address)?;
+                    if !cpu.z() {
+                        cpu.pc = (cpu.pc as i16 + offset as i16) as u16
+                    }
+                }
+                "BPL" => {
+                    // Branch if negative flag is clear
+                    let offset = memory.read_i8(address)?;
+                    if !cpu.n() {
+                        cpu.pc = (cpu.pc as i16 + offset as i16) as u16
+                    }
                 }
                 "LDA" => {
                     // Load value to a register
