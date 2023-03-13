@@ -224,6 +224,7 @@ pub fn opcodes() -> Vec<Instruction> {
         Instruction::new(0xCA, "DEX", AddressingMode::None),
         Instruction::new(0x88, "DEY", AddressingMode::None),
         Instruction::new(0xE8, "INX", AddressingMode::None),
+        Instruction::new(0xC8, "INY", AddressingMode::None),
         Instruction::new(0xAA, "TAX", AddressingMode::None),
         // Other addressing modes
         //      ADC
@@ -290,6 +291,20 @@ pub fn opcodes() -> Vec<Instruction> {
         Instruction::new(0xC4, "DEC", AddressingMode::ZeroPageX),
         Instruction::new(0xCC, "DEC", AddressingMode::Absolute),
         Instruction::new(0xCC, "DEC", AddressingMode::AbsoluteX),
+        //      EOR
+        Instruction::new(0x49, "EOR", AddressingMode::Immediate),
+        Instruction::new(0x45, "EOR", AddressingMode::ZeroPage),
+        Instruction::new(0x55, "EOR", AddressingMode::ZeroPageX),
+        Instruction::new(0x4D, "EOR", AddressingMode::Absolute),
+        Instruction::new(0x5D, "EOR", AddressingMode::AbsoluteX),
+        Instruction::new(0x59, "EOR", AddressingMode::AbsoluteY),
+        Instruction::new(0x41, "EOR", AddressingMode::IndirectX),
+        Instruction::new(0x51, "EOR", AddressingMode::IndirectY),
+        //      INC
+        Instruction::new(0xE6, "INC", AddressingMode::ZeroPage),
+        Instruction::new(0xF6, "INC", AddressingMode::ZeroPageX),
+        Instruction::new(0xEE, "INC", AddressingMode::Absolute),
+        Instruction::new(0xFE, "INC", AddressingMode::AbsoluteX),
         //      LDA
         Instruction::new(0xA9, "LDA", AddressingMode::Immediate),
         Instruction::new(0xA5, "LDA", AddressingMode::ZeroPage),
@@ -476,6 +491,15 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     cpu.set_z(zero);
                     cpu.set_n(negative);
                 }
+                "INY" => {
+                    let result = cpu.y + 1;
+                    cpu.y = result;
+
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
                 "TAX" => {
                     let value = cpu.a;
                     cpu.x = value;
@@ -649,6 +673,29 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     // Decrement memory
                     let value = memory.read_u8(address)?;
                     let result = value - 1;
+                    memory.write_u8(address, result);
+
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "EOR" => {
+                    // A ^ M
+                    let acc = cpu.a;
+                    let value = memory.read_u8(address)?;
+                    let result = acc ^ value;
+                    cpu.a = result;
+
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "INC" => {
+                    // Increment memory
+                    let value = memory.read_u8(address)?;
+                    let result = value + 1;
                     memory.write_u8(address, result);
 
                     let zero = result == 0;
