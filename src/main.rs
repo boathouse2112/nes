@@ -266,6 +266,23 @@ pub fn opcodes() -> Vec<Instruction> {
         Instruction::new(0x50, "BVC", AddressingMode::Relative),
         //      BVS
         Instruction::new(0x70, "BVS", AddressingMode::Relative),
+        //      CMP
+        Instruction::new(0xC9, "CMP", AddressingMode::Immediate),
+        Instruction::new(0xC5, "CMP", AddressingMode::ZeroPage),
+        Instruction::new(0xD5, "CMP", AddressingMode::ZeroPageX),
+        Instruction::new(0xCD, "CMP", AddressingMode::Absolute),
+        Instruction::new(0xDD, "CMP", AddressingMode::AbsoluteX),
+        Instruction::new(0xD9, "CMP", AddressingMode::AbsoluteY),
+        Instruction::new(0xC1, "CMP", AddressingMode::IndirectX),
+        Instruction::new(0xD1, "CMP", AddressingMode::IndirectY),
+        //      CPX
+        Instruction::new(0xE0, "CPX", AddressingMode::Immediate),
+        Instruction::new(0xE4, "CPX", AddressingMode::ZeroPage),
+        Instruction::new(0xEC, "CPX", AddressingMode::Absolute),
+        //      CPY
+        Instruction::new(0xC0, "CPY", AddressingMode::Immediate),
+        Instruction::new(0xC4, "CPY", AddressingMode::ZeroPage),
+        Instruction::new(0xCC, "CPY", AddressingMode::Absolute),
         //      LDA
         Instruction::new(0xA9, "LDA", AddressingMode::Immediate),
         Instruction::new(0xA5, "LDA", AddressingMode::ZeroPage),
@@ -559,6 +576,45 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     if cpu.n() {
                         cpu.pc = (cpu.pc as i16 + offset as i16) as u16
                     }
+                }
+                "CMP" => {
+                    // Set flags based on A - M
+                    let acc = cpu.a;
+                    let value = memory.read_u8(address)?;
+                    let result = acc - value;
+
+                    let carry = acc > value;
+                    let zero = acc == value;
+                    let negative = (result & 0b1000_0000) != 0;
+                    cpu.set_c(carry);
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "CPX" => {
+                    // Set flags based on A - M
+                    let x = cpu.x;
+                    let value = memory.read_u8(address)?;
+                    let result = x - value;
+
+                    let carry = x > value;
+                    let zero = x == value;
+                    let negative = (result & 0b1000_0000) != 0;
+                    cpu.set_c(carry);
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "CPY" => {
+                    // Set flags based on A - M
+                    let y = cpu.y;
+                    let value = memory.read_u8(address)?;
+                    let result = y - value;
+
+                    let carry = y > value;
+                    let zero = y == value;
+                    let negative = (result & 0b1000_0000) != 0;
+                    cpu.set_c(carry);
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
                 }
                 "LDA" => {
                     // Load value to a register
