@@ -116,6 +116,28 @@ impl Cpu {
             flags & 0b0111_1111
         }
     }
+
+    pub fn pop_stack_u8(&mut self, memory: &mut Memory) -> Result<u8, Error> {
+        let value = memory.read_u8(self.sp as u16)?;
+        self.sp -= 1;
+        Ok(value)
+    }
+
+    pub fn pop_stack_u16(&mut self, memory: &mut Memory) -> Result<u16, Error> {
+        let value = memory.read_u16(self.sp as u16)?;
+        self.sp -= 2;
+        Ok(value)
+    }
+
+    pub fn push_stack_u8(&mut self, memory: &mut Memory, value: u8) {
+        memory.write_u8(self.sp as u16, value);
+        self.sp += 1;
+    }
+
+    pub fn push_stack_u16(&mut self, memory: &mut Memory, value: u16) {
+        memory.write_u16(self.sp as u16, value);
+        self.sp += 2;
+    }
 }
 
 type Error = Box<dyn error::Error>;
@@ -305,6 +327,11 @@ pub fn opcodes() -> Vec<Instruction> {
         Instruction::new(0xF6, "INC", AddressingMode::ZeroPageX),
         Instruction::new(0xEE, "INC", AddressingMode::Absolute),
         Instruction::new(0xFE, "INC", AddressingMode::AbsoluteX),
+        //      JMP
+        Instruction::new(0x4C, "JMP", AddressingMode::Absolute),
+        Instruction::new(0x6C, "JMP", AddressingMode::Indirect),
+        //      JSR
+        Instruction::new(0x20, "JSR", AddressingMode::Absolute),
         //      LDA
         Instruction::new(0xA9, "LDA", AddressingMode::Immediate),
         Instruction::new(0xA5, "LDA", AddressingMode::ZeroPage),
@@ -314,6 +341,18 @@ pub fn opcodes() -> Vec<Instruction> {
         Instruction::new(0xB9, "LDA", AddressingMode::AbsoluteY),
         Instruction::new(0xA1, "LDA", AddressingMode::IndirectX),
         Instruction::new(0xB1, "LDA", AddressingMode::IndirectY),
+        //      LDX
+        Instruction::new(0xA2, "LDX", AddressingMode::Immediate),
+        Instruction::new(0xA6, "LDX", AddressingMode::ZeroPage),
+        Instruction::new(0xB6, "LDX", AddressingMode::ZeroPageY),
+        Instruction::new(0xAE, "LDX", AddressingMode::Absolute),
+        Instruction::new(0xBE, "LDX", AddressingMode::AbsoluteY),
+        //      LDY
+        Instruction::new(0xA0, "LDY", AddressingMode::Immediate),
+        Instruction::new(0xA4, "LDY", AddressingMode::ZeroPage),
+        Instruction::new(0xB4, "LDY", AddressingMode::ZeroPageX),
+        Instruction::new(0xAC, "LDY", AddressingMode::Absolute),
+        Instruction::new(0xBC, "LDY", AddressingMode::AbsoluteX),
     ]
 }
 
@@ -389,6 +428,14 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                 log::info!("{} ${:X},Y", operation, address);
 
                 address = address.wrapping_add(cpu.y as u16);
+                Ok(address)
+            }
+            AddressingMode::Indirect => {
+                let indirect_address = memory.read_u16(cpu.pc)?;
+                cpu.pc += 2;
+                log::info!("{} (${:X})", operation, indirect_address);
+
+                let address = memory.read_u16(indirect_address)?;
                 Ok(address)
             }
             AddressingMode::IndirectX => {
@@ -703,10 +750,40 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     cpu.set_z(zero);
                     cpu.set_n(negative);
                 }
+                "JMP" => {
+                    // Jump to location
+                    let value = memory.read_u16(address)?;
+                    cpu.pc = value;
+                }
+                "JSR" => {
+                    // Jump to subroutine. Push PC to the stack, and jump to address
+                    cpu.push_stack_u16(memory, cpu.pc);
+                    cpu.pc = address;
+                }
                 "LDA" => {
                     // Load value to a register
                     let value = memory.read_u8(address)?;
                     cpu.a = value;
+
+                    let zero = value == 0;
+                    let negative = (value as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "LDX" => {
+                    // Load value to a register
+                    let value = memory.read_u8(address)?;
+                    cpu.x = value;
+
+                    let zero = value == 0;
+                    let negative = (value as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "LDY" => {
+                    // Load value to a register
+                    let value = memory.read_u8(address)?;
+                    cpu.y = value;
 
                     let zero = value == 0;
                     let negative = (value as i8) < 0;
