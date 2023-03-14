@@ -117,13 +117,13 @@ impl Cpu {
         }
     }
 
-    pub fn pop_stack_u8(&mut self, memory: &mut Memory) -> Result<u8, Error> {
+    pub fn pull_stack_u8(&mut self, memory: &mut Memory) -> Result<u8, Error> {
         let value = memory.read_u8(self.sp as u16)?;
         self.sp -= 1;
         Ok(value)
     }
 
-    pub fn pop_stack_u16(&mut self, memory: &mut Memory) -> Result<u16, Error> {
+    pub fn pull_stack_u16(&mut self, memory: &mut Memory) -> Result<u16, Error> {
         let value = memory.read_u16(self.sp as u16)?;
         self.sp -= 2;
         Ok(value)
@@ -248,6 +248,15 @@ pub fn opcodes() -> Vec<Instruction> {
         Instruction::new(0xE8, "INX", AddressingMode::None),
         Instruction::new(0xC8, "INY", AddressingMode::None),
         Instruction::new(0xAA, "TAX", AddressingMode::None),
+        Instruction::new(0x4A, "LSR", AddressingMode::None),
+        Instruction::new(0xEA, "NOP", AddressingMode::None),
+        Instruction::new(0x48, "PHA", AddressingMode::None),
+        Instruction::new(0x08, "PHP", AddressingMode::None),
+        Instruction::new(0x68, "PLA", AddressingMode::None),
+        Instruction::new(0x28, "PLP", AddressingMode::None),
+        Instruction::new(0x2A, "ROL", AddressingMode::None),
+        Instruction::new(0x6A, "ROR", AddressingMode::None),
+        Instruction::new(0x40, "RTI", AddressingMode::None),
         // Other addressing modes
         //      ADC
         Instruction::new(0x69, "ADC", AddressingMode::Immediate),
@@ -353,6 +362,35 @@ pub fn opcodes() -> Vec<Instruction> {
         Instruction::new(0xB4, "LDY", AddressingMode::ZeroPageX),
         Instruction::new(0xAC, "LDY", AddressingMode::Absolute),
         Instruction::new(0xBC, "LDY", AddressingMode::AbsoluteX),
+        //      LDY
+        Instruction::new(0xA4, "LDY", AddressingMode::ZeroPage),
+        Instruction::new(0xB4, "LDY", AddressingMode::ZeroPageX),
+        Instruction::new(0xAC, "LDY", AddressingMode::Absolute),
+        Instruction::new(0xBC, "LDY", AddressingMode::AbsoluteX),
+        //      LSR
+        Instruction::new(0x46, "LSR", AddressingMode::ZeroPage),
+        Instruction::new(0x56, "LSR", AddressingMode::ZeroPageX),
+        Instruction::new(0x4E, "LSR", AddressingMode::Absolute),
+        Instruction::new(0x5E, "LSR", AddressingMode::AbsoluteX),
+        //      ORA
+        Instruction::new(0x09, "ORA", AddressingMode::Immediate),
+        Instruction::new(0x05, "ORA", AddressingMode::ZeroPage),
+        Instruction::new(0x15, "ORA", AddressingMode::ZeroPageX),
+        Instruction::new(0x0D, "ORA", AddressingMode::Absolute),
+        Instruction::new(0x1D, "ORA", AddressingMode::AbsoluteX),
+        Instruction::new(0x19, "ORA", AddressingMode::AbsoluteY),
+        Instruction::new(0x01, "ORA", AddressingMode::IndirectX),
+        Instruction::new(0x11, "ORA", AddressingMode::IndirectY),
+        //      ROL
+        Instruction::new(0x26, "ROL", AddressingMode::ZeroPage),
+        Instruction::new(0x36, "ROL", AddressingMode::ZeroPageX),
+        Instruction::new(0x2E, "ROL", AddressingMode::Absolute),
+        Instruction::new(0x3E, "ROL", AddressingMode::AbsoluteX),
+        //      ROR
+        Instruction::new(0x66, "ROR", AddressingMode::ZeroPage),
+        Instruction::new(0x76, "ROR", AddressingMode::ZeroPageX),
+        Instruction::new(0x6E, "ROR", AddressingMode::Absolute),
+        Instruction::new(0x7E, "ROR", AddressingMode::AbsoluteX),
     ]
 }
 
@@ -555,6 +593,74 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     let negative = (value as i8) < 0;
                     cpu.set_z(zero);
                     cpu.set_n(negative);
+                }
+                "LSR" => {
+                    let value = cpu.a;
+                    let result = value >> 1;
+                    cpu.a = result;
+
+                    let carry = (value & 1) != 0;
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    cpu.set_c(carry);
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "PHA" => {
+                    // Push A to stack
+                    cpu.push_stack_u8(memory, cpu.a);
+                }
+                "PHP" => {
+                    // Push flags to stack
+                    cpu.push_stack_u8(memory, cpu.flags);
+                }
+                "PLA" => {
+                    // Pull stack to A
+                    let value = cpu.pull_stack_u8(memory)?;
+                    cpu.a = value;
+
+                    let zero = value == 0;
+                    let negative = (value as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "PLP" => {
+                    // Pull stack to flags
+                    cpu.flags = cpu.pull_stack_u8(memory)?;
+                }
+                "ROL" => {
+                    // Rotate A left
+                    // result_carry <- [7..0] <- carry
+                    let value = cpu.a;
+                    let carry_mask = if cpu.c() { 1 } else { 0 };
+                    let result = (value << 1) | carry_mask;
+                    cpu.a = result;
+
+                    let carry = (value & 0b1000_0000) != 0;
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    cpu.set_c(carry);
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "ROR" => {
+                    // Rotate A right
+                    // carry -> [7..0] -> result_carry
+                    let value = cpu.a;
+                    let carry_mask = if cpu.c() { 0b1000_0000 } else { 0 };
+                    let result = (value >> 1) | carry_mask;
+                    cpu.a = result;
+
+                    let carry = (value & 1) != 0;
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    cpu.set_c(carry);
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "RTI" => {
+                    cpu.flags = cpu.pull_stack_u8(memory)?;
+                    cpu.pc = cpu.pull_stack_u16(memory)?;
                 }
                 operation => {
                     todo!("{:?}", operation)
@@ -787,6 +893,57 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
 
                     let zero = value == 0;
                     let negative = (value as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "LSR" => {
+                    let value = memory.read_u8(address)?;
+                    let result = value >> 1;
+                    memory.write_u8(address, result);
+
+                    let carry = (value & 1) != 0;
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    cpu.set_c(carry);
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "ORA" => {
+                    let value = memory.read_u8(address)?;
+                    let result = cpu.a | value;
+
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "ROL" => {
+                    // Rotate A left
+                    // result_carry <- [7..0] <- carry
+                    let value = memory.read_u8(address)?;
+                    let carry_mask = if cpu.c() { 1 } else { 0 };
+                    let result = (value << 1) | carry_mask;
+                    memory.write_u8(address, result);
+
+                    let carry = (value & 0b1000_0000) != 0;
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    cpu.set_c(carry);
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "ROR" => {
+                    // Rotate A right
+                    // carry -> [7..0] -> result_carry
+                    let value = memory.read_u8(address)?;
+                    let carry_mask = if cpu.c() { 0b1000_0000 } else { 0 };
+                    let result = (value >> 1) | carry_mask;
+                    memory.write_u8(address, result);
+
+                    let carry = (value & 1) != 0;
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    cpu.set_c(carry);
                     cpu.set_z(zero);
                     cpu.set_n(negative);
                 }
