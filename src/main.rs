@@ -257,6 +257,16 @@ pub fn opcodes() -> Vec<Instruction> {
         Instruction::new(0x2A, "ROL", AddressingMode::None),
         Instruction::new(0x6A, "ROR", AddressingMode::None),
         Instruction::new(0x40, "RTI", AddressingMode::None),
+        Instruction::new(0x60, "RTS", AddressingMode::None),
+        Instruction::new(0x38, "SEC", AddressingMode::None),
+        Instruction::new(0xF8, "SED", AddressingMode::None),
+        Instruction::new(0x78, "SEI", AddressingMode::None),
+        Instruction::new(0xAA, "TAX", AddressingMode::None),
+        Instruction::new(0xA8, "TAY", AddressingMode::None),
+        Instruction::new(0xBA, "TSX", AddressingMode::None),
+        Instruction::new(0x8A, "TXA", AddressingMode::None),
+        Instruction::new(0x9A, "TXS", AddressingMode::None),
+        Instruction::new(0x98, "TYA", AddressingMode::None),
         // Other addressing modes
         //      ADC
         Instruction::new(0x69, "ADC", AddressingMode::Immediate),
@@ -391,6 +401,31 @@ pub fn opcodes() -> Vec<Instruction> {
         Instruction::new(0x76, "ROR", AddressingMode::ZeroPageX),
         Instruction::new(0x6E, "ROR", AddressingMode::Absolute),
         Instruction::new(0x7E, "ROR", AddressingMode::AbsoluteX),
+        //      SBC
+        Instruction::new(0xE9, "SBC", AddressingMode::Immediate),
+        Instruction::new(0xE5, "SBC", AddressingMode::ZeroPage),
+        Instruction::new(0xF5, "SBC", AddressingMode::ZeroPageX),
+        Instruction::new(0xED, "SBC", AddressingMode::Absolute),
+        Instruction::new(0xFD, "SBC", AddressingMode::AbsoluteX),
+        Instruction::new(0xF9, "SBC", AddressingMode::AbsoluteY),
+        Instruction::new(0xE1, "SBC", AddressingMode::IndirectX),
+        Instruction::new(0xF1, "SBC", AddressingMode::IndirectY),
+        //      STA
+        Instruction::new(0x85, "STA", AddressingMode::ZeroPage),
+        Instruction::new(0x95, "STA", AddressingMode::ZeroPageX),
+        Instruction::new(0x8D, "STA", AddressingMode::Absolute),
+        Instruction::new(0x9D, "STA", AddressingMode::AbsoluteX),
+        Instruction::new(0x99, "STA", AddressingMode::AbsoluteY),
+        Instruction::new(0x81, "STA", AddressingMode::IndirectX),
+        Instruction::new(0x91, "STA", AddressingMode::IndirectY),
+        //      STX
+        Instruction::new(0x86, "STX", AddressingMode::ZeroPage),
+        Instruction::new(0x96, "STX", AddressingMode::ZeroPageY),
+        Instruction::new(0x8E, "STX", AddressingMode::Absolute),
+        //      STY
+        Instruction::new(0x84, "STY", AddressingMode::ZeroPage),
+        Instruction::new(0x94, "STY", AddressingMode::ZeroPageX),
+        Instruction::new(0x8C, "STY", AddressingMode::Absolute),
     ]
 }
 
@@ -585,15 +620,6 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     cpu.set_z(zero);
                     cpu.set_n(negative);
                 }
-                "TAX" => {
-                    let value = cpu.a;
-                    cpu.x = value;
-
-                    let zero = value == 0;
-                    let negative = (value as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
-                }
                 "LSR" => {
                     let value = cpu.a;
                     let result = value >> 1;
@@ -662,6 +688,66 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     cpu.flags = cpu.pull_stack_u8(memory)?;
                     cpu.pc = cpu.pull_stack_u16(memory)?;
                 }
+                "RTS" => {
+                    cpu.pc = cpu.pull_stack_u16(memory)?;
+                }
+                "SEC" => {
+                    cpu.set_c(true);
+                }
+                "SED" => {
+                    cpu.set_d(true);
+                }
+                "SEI" => {
+                    cpu.set_i(true);
+                }
+                "TAX" => {
+                    let value = cpu.a;
+                    cpu.x = value;
+
+                    let zero = value == 0;
+                    let negative = (value as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "TAY" => {
+                    let value = cpu.a;
+                    cpu.y = value;
+
+                    let zero = value == 0;
+                    let negative = (value as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "TSX" => {
+                    let value = cpu.sp;
+                    cpu.x = value;
+
+                    let zero = value == 0;
+                    let negative = (value as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "TXA" => {
+                    let value = cpu.x;
+                    cpu.a = value;
+
+                    let zero = value == 0;
+                    let negative = (value as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
+                "TXS" => {
+                    cpu.sp = cpu.x;
+                }
+                "TYA" => {
+                    let value = cpu.y;
+                    cpu.a = value;
+
+                    let zero = value == 0;
+                    let negative = (value as i8) < 0;
+                    cpu.set_z(zero);
+                    cpu.set_n(negative);
+                }
                 operation => {
                     todo!("{:?}", operation)
                 }
@@ -685,11 +771,17 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     let (result, result_carry) = acc_value.carrying_add(memory_value, carry);
                     cpu.a = result;
 
+                    let should_be_negative = (acc_value as i32)
+                        .carrying_add(memory_value as i32, carry)
+                        .0
+                        < 0;
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
+                    let overflow = negative != should_be_negative;
                     cpu.set_c(result_carry);
                     cpu.set_z(zero);
-                    cpu.set_z(negative);
+                    cpu.set_v(overflow);
+                    cpu.set_n(negative);
                 }
                 "AND" => {
                     let value = memory.read_u8(address)?;
@@ -946,6 +1038,38 @@ fn step(Console { cpu, memory }: &mut Console, opcodes: &Vec<Instruction>) -> Re
                     cpu.set_c(carry);
                     cpu.set_z(zero);
                     cpu.set_n(negative);
+                }
+                "SBC" => {
+                    let acc_value = cpu.a;
+                    let memory_value = memory.read_u8(address)?;
+                    let carry = cpu.c();
+
+                    let (result, result_carry) = acc_value.borrowing_sub(memory_value, !carry);
+                    cpu.a = result;
+
+                    let should_be_negative = (acc_value as i32)
+                        .borrowing_sub(memory_value as i32, !carry)
+                        .0
+                        < 0;
+                    let zero = result == 0;
+                    let negative = (result as i8) < 0;
+                    let overflow = should_be_negative != negative;
+                    cpu.set_c(result_carry);
+                    cpu.set_z(zero);
+                    cpu.set_v(overflow);
+                    cpu.set_n(negative);
+                }
+                "STA" => {
+                    // Store A to memory
+                    memory.write_u8(address, cpu.a);
+                }
+                "STX" => {
+                    // Store X to memory
+                    memory.write_u8(address, cpu.x);
+                }
+                "STY" => {
+                    // Store Y to memory
+                    memory.write_u8(address, cpu.y);
                 }
                 operation => {
                     todo!("{:?}", operation)
