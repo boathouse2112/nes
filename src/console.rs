@@ -1,4 +1,4 @@
-use crate::{bus::Bus, cpu::Cpu, memory::Memory};
+use crate::{bus::Bus, cpu::Cpu};
 
 pub struct Console {
     pub cpu: Cpu,

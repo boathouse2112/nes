@@ -1,4 +1,4 @@
-use crate::{bus::Bus, config::ROM_START, memory::Memory, util::Error};
+use crate::{bus::Bus, config::ROM_START, util::Error};
 
 pub struct Cpu {
     pub pc: u16,

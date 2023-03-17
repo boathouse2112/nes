@@ -1,4 +1,4 @@
-use crate::{bus::Bus, console::Console, cpu::Cpu, memory::Memory, util::Error};
+use crate::{bus::Bus, console::Console, cpu::Cpu, util::Error};
 
 #[derive(Debug, Clone, Copy)]
 pub enum AddressingMode {
@@ -877,20 +877,24 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
 
 #[cfg(test)]
 mod instruction_tests {
+    use std::fs;
+
     use crate::{
         bus::Bus,
         console::Console,
         cpu::Cpu,
         instruction::{instructions, step},
-        memory::Memory,
+        rom::Rom,
         util::Error,
     };
 
     #[test]
     fn lda_immediate_loads_immediate_value() -> Result<(), Error> {
+        let rom_bytes = fs::read("roms/snake.nes")?;
+        let rom = Rom::new(&rom_bytes)?;
         let mut console = Console {
             cpu: Cpu::new(),
-            bus: Bus::new(),
+            bus: Bus::new(rom),
         };
         let instructions = instructions();
         let program = vec![
@@ -909,9 +913,11 @@ mod instruction_tests {
 
     #[test]
     fn lda_zero_page_loads_from_memory() -> Result<(), Error> {
+        let rom_bytes = fs::read("roms/snake.nes")?;
+        let rom = Rom::new(&rom_bytes)?;
         let mut console = Console {
             cpu: Cpu::new(),
-            bus: Bus::new(),
+            bus: Bus::new(rom),
         };
         let opcodes = instructions();
         let program = vec![
@@ -931,9 +937,11 @@ mod instruction_tests {
 
     #[test]
     fn lda_zero_page_x_loads_from_memory() -> Result<(), Error> {
+        let rom_bytes = fs::read("roms/snake.nes")?;
+        let rom = Rom::new(&rom_bytes)?;
         let mut console = Console {
             cpu: Cpu::new(),
-            bus: Bus::new(),
+            bus: Bus::new(rom),
         };
         let opcodes = instructions();
         let program = vec![
@@ -954,9 +962,11 @@ mod instruction_tests {
 
     #[test]
     fn lda_zero_page_x_wraps_if_greater_than_0xff() -> Result<(), Error> {
+        let rom_bytes = fs::read("roms/snake.nes")?;
+        let rom = Rom::new(&rom_bytes)?;
         let mut console = Console {
             cpu: Cpu::new(),
-            bus: Bus::new(),
+            bus: Bus::new(rom),
         };
         let opcodes = instructions();
         let program = vec![
@@ -977,18 +987,20 @@ mod instruction_tests {
 
     #[test]
     fn lda_absolute_loads_from_memory() -> Result<(), Error> {
+        let rom_bytes = fs::read("roms/snake.nes")?;
+        let rom = Rom::new(&rom_bytes)?;
         let mut console = Console {
             cpu: Cpu::new(),
-            bus: Bus::new(),
+            bus: Bus::new(rom),
         };
         let opcodes = instructions();
         let program = vec![
-            0xAD, // LDA $ABCD     ;$8000
+            0xAD, // LDA $0BCD     ;$8000
             0xCD, //
-            0xAB, //
+            0x0B, //
         ];
 
-        console.bus.write_u8(0xABCD, 0x11); // Set the value to read from $ABCD
+        console.bus.write_u8(0x0BCD, 0x11); // Set the value to read from $ABCD
         console.bus.load_rom(program);
 
         step(&mut console, &opcodes)?;
@@ -1000,19 +1012,21 @@ mod instruction_tests {
 
     #[test]
     fn lda_absolute_x_loads_from_memory() -> Result<(), Error> {
+        let rom_bytes = fs::read("roms/snake.nes")?;
+        let rom = Rom::new(&rom_bytes)?;
         let mut console = Console {
             cpu: Cpu::new(),
-            bus: Bus::new(),
+            bus: Bus::new(rom),
         };
         let opcodes = instructions();
         let program = vec![
-            0xBD, // LDA $F000,X     ;$8000
+            0xBD, // LDA $0F00,X     ;$8000
             0x00, //
-            0xF0, //
+            0x0F, //
         ];
 
         console.cpu.x = 0x22;
-        console.bus.write_u8(0xF022, 0xAB); // Set the value to read from $F000 + 0x22
+        console.bus.write_u8(0x0F22, 0xAB); // Set the value to read from $F000 + 0x22
         console.bus.load_rom(program);
 
         step(&mut console, &opcodes)?;
@@ -1024,19 +1038,21 @@ mod instruction_tests {
 
     #[test]
     fn lda_absolute_y_loads_from_memory() -> Result<(), Error> {
+        let rom_bytes = fs::read("roms/snake.nes")?;
+        let rom = Rom::new(&rom_bytes)?;
         let mut console = Console {
             cpu: Cpu::new(),
-            bus: Bus::new(),
+            bus: Bus::new(rom),
         };
         let opcodes = instructions();
         let program = vec![
-            0xB9, // LDA $F000,Y     ;$8000
+            0xB9, // LDA $0F00,Y     ;$8000
             0x00, //
-            0xF0, //
+            0x0F, //
         ];
 
         console.cpu.y = 0x22;
-        console.bus.write_u8(0xF022, 0xAB); // Set the value to read from $F000 + 0x22
+        console.bus.write_u8(0x0F22, 0xAB); // Set the value to read from $F000 + 0x22
         console.bus.load_rom(program);
 
         step(&mut console, &opcodes)?;
@@ -1048,9 +1064,11 @@ mod instruction_tests {
 
     #[test]
     fn lda_indirect_x_loads_from_memory() -> Result<(), Error> {
+        let rom_bytes = fs::read("roms/snake.nes")?;
+        let rom = Rom::new(&rom_bytes)?;
         let mut console = Console {
             cpu: Cpu::new(),
-            bus: Bus::new(),
+            bus: Bus::new(rom),
         };
         let opcodes = instructions();
         let program = vec![
@@ -1072,9 +1090,11 @@ mod instruction_tests {
 
     #[test]
     fn lda_indirect_y_loads_from_memory() -> Result<(), Error> {
+        let rom_bytes = fs::read("roms/snake.nes")?;
+        let rom = Rom::new(&rom_bytes)?;
         let mut console = Console {
             cpu: Cpu::new(),
-            bus: Bus::new(),
+            bus: Bus::new(rom),
         };
         let opcodes = instructions();
         let program = vec![
@@ -1096,15 +1116,17 @@ mod instruction_tests {
 
     #[test]
     fn lda_sets_flags_correctly() -> Result<(), Error> {
+        let rom_bytes = fs::read("roms/snake.nes")?;
+        let rom = Rom::new(&rom_bytes)?;
         let mut console = Console {
             cpu: Cpu::new(),
-            bus: Bus::new(),
+            bus: Bus::new(rom),
         };
         let opcodes = instructions();
         let program = vec![
             0xA9, // LDA #$20
             0x20, //
-            0xA9, // LDA #$00
+            0xA9, // LDA #0
             0x00, //
             0xA9, // LDA #$(-10 as u8)
             ((-10 as i8) as u8),
@@ -1135,9 +1157,11 @@ mod instruction_tests {
 
     #[test]
     fn asl_works() -> Result<(), Error> {
+        let rom_bytes = fs::read("roms/snake.nes")?;
+        let rom = Rom::new(&rom_bytes)?;
         let mut console = Console {
             cpu: Cpu::new(),
-            bus: Bus::new(),
+            bus: Bus::new(rom),
         };
         let opcodes = instructions();
         let program = vec![
