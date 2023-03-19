@@ -324,7 +324,7 @@ pub fn step(
         }
     }
 
-    /*
+    /**
      * Set flags based on (lhs - rhs)
      */
     fn compare(lhs: u8, rhs: u8, cpu: &mut Cpu) {
@@ -335,6 +335,15 @@ pub fn step(
         cpu.set_c(!borrow);
         cpu.set_z(zero);
         cpu.set_n(negative);
+    }
+
+    /**
+     * Branch (add offset to cpu.pc) if the condition is true
+     */
+    fn branch(condition: bool, offset: i8, cpu: &mut Cpu) {
+        if condition {
+            cpu.pc = (cpu.pc as i16 + offset as i16) as u16
+        }
     }
 
     let instruction = instructions
@@ -603,25 +612,19 @@ pub fn step(
                     cpu.set_n(negative);
                 }
                 "BCC" => {
-                    // Branch (add offset to pc) if carry flag is clear
+                    // Branch if carry flag is clear
                     let offset = bus.read_i8(address);
-                    if !cpu.c() {
-                        cpu.pc = (cpu.pc as i16 + offset as i16) as u16
-                    }
+                    branch(!cpu.c(), offset, cpu);
                 }
                 "BCS" => {
                     // Branch if carry flag is set
                     let offset = bus.read_i8(address);
-                    if cpu.c() {
-                        cpu.pc = (cpu.pc as i32 + offset as i32) as u16
-                    }
+                    branch(cpu.c(), offset, cpu);
                 }
                 "BEQ" => {
                     // Branch if zero flag is set
                     let offset = bus.read_i8(address);
-                    if cpu.z() {
-                        cpu.pc = (cpu.pc as i16 + offset as i16) as u16
-                    }
+                    branch(cpu.z(), offset, cpu);
                 }
                 "BIT" => {
                     // Set zero flag to (A AND value) == 0
@@ -638,37 +641,27 @@ pub fn step(
                 "BMI" => {
                     // Branch if negative flag is set
                     let offset = bus.read_i8(address);
-                    if cpu.n() {
-                        cpu.pc = (cpu.pc as i16 + offset as i16) as u16
-                    }
+                    branch(cpu.n(), offset, cpu);
                 }
                 "BNE" => {
                     // Branch if zero flag is clear
                     let offset = bus.read_i8(address);
-                    if !cpu.z() {
-                        cpu.pc = (cpu.pc as i16 + offset as i16) as u16
-                    }
+                    branch(!cpu.z(), offset, cpu);
                 }
                 "BPL" => {
                     // Branch if negative flag is clear
                     let offset = bus.read_i8(address);
-                    if !cpu.n() {
-                        cpu.pc = (cpu.pc as i16 + offset as i16) as u16
-                    }
+                    branch(!cpu.n(), offset, cpu);
                 }
                 "BVC" => {
                     // Branch if overflow flag is clear
                     let offset = bus.read_i8(address);
-                    if !cpu.v() {
-                        cpu.pc = (cpu.pc as i16 + offset as i16) as u16
-                    }
+                    branch(!cpu.v(), offset, cpu);
                 }
                 "BVS" => {
                     // Branch if overflow flag is set
                     let offset = bus.read_i8(address);
-                    if cpu.v() {
-                        cpu.pc = (cpu.pc as i16 + offset as i16) as u16
-                    }
+                    branch(cpu.v(), offset, cpu);
                 }
                 "CMP" => {
                     // Set flags based on A - M
@@ -729,7 +722,7 @@ pub fn step(
                     cpu.pc = address;
                 }
                 "LDA" => {
-                    // Load value to a register
+                    // Load value to A
                     let value = bus.read_u8(address);
                     cpu.a = value;
 
