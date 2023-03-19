@@ -1,4 +1,11 @@
-use crate::{bus::Bus, console::Console, cpu::Cpu, util::Error};
+use bitflags::BitFlags;
+
+use crate::{
+    bus::Bus,
+    console::Console,
+    cpu::{Cpu, Flags},
+    util::Error,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub enum AddressingMode {
@@ -326,24 +333,42 @@ pub fn step(
 
     /**
      * Set flags based on (lhs - rhs)
+     *  N Z C I D V
+     *  - - - - - -
      */
-    fn compare(lhs: u8, rhs: u8, cpu: &mut Cpu) {
+    fn compare(lhs: u8, rhs: u8, flags: &mut Flags) {
         let (result, borrow) = lhs.borrowing_sub(rhs, false);
 
         let zero = lhs == rhs;
         let negative = (result as i8) < 0;
-        cpu.set_c(!borrow);
-        cpu.set_z(zero);
-        cpu.set_n(negative);
+        flags.set(Flags::CARRY, !borrow);
+        flags.set(Flags::ZERO, zero);
+        flags.set(Flags::NEGATIVE, negative);
     }
 
     /**
      * Branch (add offset to cpu.pc) if the condition is true
+     *  N Z C I D V
+     *  - - - - - -
      */
     fn branch(condition: bool, offset: i8, cpu: &mut Cpu) {
         if condition {
             cpu.pc = (cpu.pc as i16 + offset as i16) as u16
         }
+    }
+
+    /**
+     *  Loads the given value to a register
+     *  N Z C I D V
+     *  ? ? - - - -
+     */
+    fn load(value: u8, register: &mut u8, flags: &mut Flags) {
+        *register = value;
+
+        let zero = value == 0;
+        let negative = (value as i8) < 0;
+        flags.set(Flags::ZERO, zero);
+        flags.set(Flags::NEGATIVE, negative);
     }
 
     let instruction = instructions
@@ -364,31 +389,31 @@ pub fn step(
                     let carry = (value & 0b1000_0000) != 0;
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_c(carry);
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::CARRY, carry);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "BRK" => {
                     cpu.push_stack_u16(bus, cpu.pc);
-                    cpu.push_stack_u8(bus, cpu.flags);
+                    cpu.push_stack_u8(bus, cpu.flags.bits());
                     cpu.pc = bus.read_u16(0xFFFE);
-                    cpu.set_b(true);
+                    cpu.flags.set(Flags::BREAK, true);
                 }
                 "CLC" => {
                     // Clear carry flag
-                    cpu.set_c(false);
+                    cpu.flags.set(Flags::CARRY, false);
                 }
                 "CLD" => {
                     // Clear decimal flag
-                    cpu.set_d(false);
+                    cpu.flags.set(Flags::DECIMAL, false);
                 }
                 "CLI" => {
                     // Clear interrupt flag
-                    cpu.set_i(false);
+                    cpu.flags.set(Flags::INTERRUPT, false);
                 }
                 "CLV" => {
                     // Clear overflow flag
-                    cpu.set_v(false);
+                    cpu.flags.set(Flags::OVERFLOW, false);
                 }
                 "DEX" => {
                     // Decrement X
@@ -398,8 +423,8 @@ pub fn step(
 
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "DEY" => {
                     // Decrement Y
@@ -409,8 +434,8 @@ pub fn step(
 
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "INX" => {
                     let result = cpu.x.wrapping_add(1);
@@ -418,8 +443,8 @@ pub fn step(
 
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "INY" => {
                     let result = cpu.y.wrapping_add(1);
@@ -427,8 +452,8 @@ pub fn step(
 
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "LSR" => {
                     let value = cpu.a;
@@ -438,9 +463,9 @@ pub fn step(
                     let carry = (value & 1) != 0;
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_c(carry);
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::CARRY, carry);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "NOP" => {}
                 "PHA" => {
@@ -449,8 +474,9 @@ pub fn step(
                 }
                 "PHP" => {
                     // Push flags to stack
-                    let value = cpu.flags | 0b0011_0000; // PHP pushes with bits 4 and 5 true
-                    cpu.push_stack_u8(bus, value);
+                    // Pushes with bits 5 and 4 true
+                    let flags_to_push = cpu.flags.union(Flags::BREAK | Flags::BREAK_2).bits();
+                    cpu.push_stack_u8(bus, flags_to_push);
                 }
                 "PLA" => {
                     // Pull stack to A
@@ -459,46 +485,59 @@ pub fn step(
 
                     let zero = value == 0;
                     let negative = (value as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "PLP" => {
                     // Pull stack to flags
-                    let value = cpu.pull_stack_u8(bus)?;
-                    cpu.flags = value & 0b1110_1111 | 0b0010_0000; // PLP sets bit 4 to 0, bit 5 to 1
+                    // Sets bit 5 to 1, bit 4 to 0
+                    let pulled_flags = Flags::from_bits_retain(cpu.pull_stack_u8(bus)?);
+                    let flags = pulled_flags.union(Flags::BREAK).difference(Flags::BREAK_2);
+                    cpu.flags = flags;
                 }
                 "ROL" => {
                     // Rotate A left
                     // result_carry <- [7..0] <- carry
                     let value = cpu.a;
-                    let carry_mask = if cpu.c() { 1 } else { 0 };
+                    let carry_mask = if cpu.flags.contains(Flags::CARRY) {
+                        1
+                    } else {
+                        0
+                    };
                     let result = (value << 1) | carry_mask;
                     cpu.a = result;
 
                     let carry = (value & 0b1000_0000) != 0;
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_c(carry);
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::CARRY, carry);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "ROR" => {
                     // Rotate A right
                     // carry -> [7..0] -> result_carry
                     let value = cpu.a;
-                    let carry_mask = if cpu.c() { 0b1000_0000 } else { 0 };
+                    let carry_mask = if cpu.flags.contains(Flags::CARRY) {
+                        0b1000_0000
+                    } else {
+                        0
+                    };
                     let result = (value >> 1) | carry_mask;
                     cpu.a = result;
 
                     let carry = (value & 1) != 0;
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_c(carry);
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::CARRY, carry);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "RTI" => {
-                    cpu.flags = cpu.pull_stack_u8(bus)? & 0b1110_1111 | 0b0010_0000;
+                    // Sets bit 5 to 1, bit 4 to 0
+                    let pulled_flags = Flags::from_bits_retain(cpu.pull_stack_u8(bus)?);
+                    let flags = pulled_flags.union(Flags::BREAK).difference(Flags::BREAK_2);
+                    cpu.flags = flags;
                     cpu.pc = cpu.pull_stack_u16(bus)?;
                 }
                 "RTS" => {
@@ -506,13 +545,13 @@ pub fn step(
                     cpu.pc += 1;
                 }
                 "SEC" => {
-                    cpu.set_c(true);
+                    cpu.flags.set(Flags::CARRY, true);
                 }
                 "SED" => {
-                    cpu.set_d(true);
+                    cpu.flags.set(Flags::DECIMAL, true);
                 }
                 "SEI" => {
-                    cpu.set_i(true);
+                    cpu.flags.set(Flags::INTERRUPT, true);
                 }
                 "TAX" => {
                     let value = cpu.a;
@@ -520,8 +559,8 @@ pub fn step(
 
                     let zero = value == 0;
                     let negative = (value as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "TAY" => {
                     let value = cpu.a;
@@ -529,8 +568,8 @@ pub fn step(
 
                     let zero = value == 0;
                     let negative = (value as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "TSX" => {
                     let value = cpu.sp;
@@ -538,8 +577,8 @@ pub fn step(
 
                     let zero = value == 0;
                     let negative = (value as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "TXA" => {
                     let value = cpu.x;
@@ -547,8 +586,8 @@ pub fn step(
 
                     let zero = value == 0;
                     let negative = (value as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "TXS" => {
                     cpu.sp = cpu.x;
@@ -559,8 +598,8 @@ pub fn step(
 
                     let zero = value == 0;
                     let negative = (value as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 operation => {
                     todo!("{:?}", operation)
@@ -575,7 +614,7 @@ pub fn step(
                 "ADC" => {
                     let acc_value = cpu.a;
                     let memory_value = bus.read_u8(address);
-                    let carry = cpu.c();
+                    let carry = cpu.flags.contains(Flags::CARRY);
 
                     let (result, result_carry) = acc_value.carrying_add(memory_value, carry);
                     cpu.a = result;
@@ -583,10 +622,10 @@ pub fn step(
                     let zero = result == 0;
                     let overflow = (acc_value as i8).checked_add(memory_value as i8).is_none();
                     let negative = (result as i8) < 0;
-                    cpu.set_c(result_carry);
-                    cpu.set_z(zero);
-                    cpu.set_v(overflow);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::CARRY, result_carry);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::OVERFLOW, overflow);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "AND" => {
                     let value = bus.read_u8(address);
@@ -595,8 +634,8 @@ pub fn step(
 
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "ASL" => {
                     // Shift bits left 1
@@ -607,24 +646,24 @@ pub fn step(
                     let carry = (value & 0b1000_0000) != 0;
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_c(carry);
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::CARRY, carry);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "BCC" => {
                     // Branch if carry flag is clear
                     let offset = bus.read_i8(address);
-                    branch(!cpu.c(), offset, cpu);
+                    branch(!cpu.flags.contains(Flags::CARRY), offset, cpu);
                 }
                 "BCS" => {
                     // Branch if carry flag is set
                     let offset = bus.read_i8(address);
-                    branch(cpu.c(), offset, cpu);
+                    branch(cpu.flags.contains(Flags::CARRY), offset, cpu);
                 }
                 "BEQ" => {
                     // Branch if zero flag is set
                     let offset = bus.read_i8(address);
-                    branch(cpu.z(), offset, cpu);
+                    branch(cpu.flags.contains(Flags::ZERO), offset, cpu);
                 }
                 "BIT" => {
                     // Set zero flag to (A AND value) == 0
@@ -634,49 +673,49 @@ pub fn step(
                     let zero = result == 0;
                     let overflow = (value & 0b0100_0000) != 0; // Overflow -> bit 6
                     let negative = (value & 0b1000_0000) != 0; // Negative -> bit 7
-                    cpu.set_z(zero);
-                    cpu.set_v(overflow);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::OVERFLOW, overflow);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "BMI" => {
                     // Branch if negative flag is set
                     let offset = bus.read_i8(address);
-                    branch(cpu.n(), offset, cpu);
+                    branch(cpu.flags.contains(Flags::NEGATIVE), offset, cpu);
                 }
                 "BNE" => {
                     // Branch if zero flag is clear
                     let offset = bus.read_i8(address);
-                    branch(!cpu.z(), offset, cpu);
+                    branch(!cpu.flags.contains(Flags::ZERO), offset, cpu);
                 }
                 "BPL" => {
                     // Branch if negative flag is clear
                     let offset = bus.read_i8(address);
-                    branch(!cpu.n(), offset, cpu);
+                    branch(!cpu.flags.contains(Flags::NEGATIVE), offset, cpu);
                 }
                 "BVC" => {
                     // Branch if overflow flag is clear
                     let offset = bus.read_i8(address);
-                    branch(!cpu.v(), offset, cpu);
+                    branch(!cpu.flags.contains(Flags::OVERFLOW), offset, cpu);
                 }
                 "BVS" => {
                     // Branch if overflow flag is set
                     let offset = bus.read_i8(address);
-                    branch(cpu.v(), offset, cpu);
+                    branch(cpu.flags.contains(Flags::OVERFLOW), offset, cpu);
                 }
                 "CMP" => {
                     // Set flags based on A - M
                     let memory_value = bus.read_u8(address);
-                    compare(cpu.a, memory_value, cpu);
+                    compare(cpu.a, memory_value, &mut cpu.flags);
                 }
                 "CPX" => {
                     // Set flags based on X - M
                     let memory_value = bus.read_u8(address);
-                    compare(cpu.x, memory_value, cpu);
+                    compare(cpu.x, memory_value, &mut cpu.flags);
                 }
                 "CPY" => {
                     // Set flags based on Y - M
                     let memory_value = bus.read_u8(address);
-                    compare(cpu.y, memory_value, cpu);
+                    compare(cpu.y, memory_value, &mut cpu.flags);
                 }
                 "DEC" => {
                     // Decrement memory
@@ -686,8 +725,8 @@ pub fn step(
 
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "EOR" => {
                     // A ^ M
@@ -698,8 +737,8 @@ pub fn step(
 
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "INC" => {
                     // Increment memory
@@ -709,8 +748,8 @@ pub fn step(
 
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "JMP" => {
                     // Jump to location
@@ -724,12 +763,7 @@ pub fn step(
                 "LDA" => {
                     // Load value to A
                     let value = bus.read_u8(address);
-                    cpu.a = value;
-
-                    let zero = value == 0;
-                    let negative = (value as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    load(value, &mut cpu.a, &mut cpu.flags);
                 }
                 "LDX" => {
                     // Load value to a register
@@ -738,8 +772,8 @@ pub fn step(
 
                     let zero = value == 0;
                     let negative = (value as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "LDY" => {
                     // Load value to a register
@@ -748,8 +782,8 @@ pub fn step(
 
                     let zero = value == 0;
                     let negative = (value as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "LSR" => {
                     let value = bus.read_u8(address);
@@ -759,9 +793,9 @@ pub fn step(
                     let carry = (value & 1) != 0;
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_c(carry);
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::CARRY, carry);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "ORA" => {
                     let value = bus.read_u8(address);
@@ -770,43 +804,51 @@ pub fn step(
 
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "ROL" => {
                     // Rotate A left
                     // result_carry <- [7..0] <- carry
                     let value = bus.read_u8(address);
-                    let carry_mask = if cpu.c() { 1 } else { 0 };
+                    let carry_mask = if cpu.flags.contains(Flags::CARRY) {
+                        1
+                    } else {
+                        0
+                    };
                     let result = (value << 1) | carry_mask;
                     bus.write_u8(address, result);
 
                     let carry = (value & 0b1000_0000) != 0;
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_c(carry);
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::CARRY, carry);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "ROR" => {
                     // Rotate A right
                     // carry -> [7..0] -> result_carry
                     let value = bus.read_u8(address);
-                    let carry_mask = if cpu.c() { 0b1000_0000 } else { 0 };
+                    let carry_mask = if cpu.flags.contains(Flags::CARRY) {
+                        0b1000_0000
+                    } else {
+                        0
+                    };
                     let result = (value >> 1) | carry_mask;
                     bus.write_u8(address, result);
 
                     let carry = (value & 1) != 0;
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
-                    cpu.set_c(carry);
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::CARRY, carry);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "SBC" => {
                     let acc_value = cpu.a;
                     let memory_value = bus.read_u8(address);
-                    let carry = cpu.c();
+                    let carry = cpu.flags.contains(Flags::CARRY);
 
                     let (result, borrow) = acc_value.borrowing_sub(memory_value, !carry);
                     cpu.a = result;
@@ -814,10 +856,10 @@ pub fn step(
                     let zero = result == 0;
                     let (_, overflow) = (acc_value as i8).borrowing_sub(memory_value as i8, !carry);
                     let negative = (result as i8) < 0;
-                    cpu.set_c(!borrow);
-                    cpu.set_z(zero);
-                    cpu.set_v(overflow);
-                    cpu.set_n(negative);
+                    cpu.flags.set(Flags::CARRY, !borrow);
+                    cpu.flags.set(Flags::ZERO, zero);
+                    cpu.flags.set(Flags::OVERFLOW, overflow);
+                    cpu.flags.set(Flags::NEGATIVE, negative);
                 }
                 "STA" => {
                     // Store A to memory
@@ -848,7 +890,7 @@ mod instruction_tests {
     use crate::{
         bus::Bus,
         console::Console,
-        cpu::Cpu,
+        cpu::{Cpu, Flags},
         instruction::{instructions, step},
         rom::Rom,
         util::Error,
@@ -1103,20 +1145,20 @@ mod instruction_tests {
         step(&mut console, &opcodes)?;
         assert_eq!(console.cpu.pc, 0x8002);
         assert_eq!(console.cpu.a, 0x20);
-        assert!(!console.cpu.z()); // Not zero
-        assert!(!console.cpu.n()); // Not negative
+        assert!(!console.cpu.flags.contains(Flags::ZERO)); // Not zero
+        assert!(!console.cpu.flags.contains(Flags::NEGATIVE)); // Not negative
 
         step(&mut console, &opcodes)?;
         assert_eq!(console.cpu.pc, 0x8004);
         assert_eq!(console.cpu.a, 0x00);
-        assert!(console.cpu.z()); // Is zero
-        assert!(!console.cpu.n()); // Not negative
+        assert!(console.cpu.flags.contains(Flags::ZERO)); // Is zero
+        assert!(!console.cpu.flags.contains(Flags::NEGATIVE)); // Not negative
 
         step(&mut console, &opcodes)?;
         assert_eq!(console.cpu.pc, 0x8006);
         assert_eq!(console.cpu.a, ((-10 as i8) as u8));
-        assert!(!console.cpu.z()); // Not Zero
-        assert!(console.cpu.n()); // Is negative
+        assert!(!console.cpu.flags.contains(Flags::ZERO)); // Not Zero
+        assert!(console.cpu.flags.contains(Flags::NEGATIVE)); // Is negative
 
         Ok(())
     }
@@ -1142,16 +1184,16 @@ mod instruction_tests {
 
         step(&mut console, &opcodes)?;
         assert_eq!(console.cpu.a, 0);
-        assert!(console.cpu.c());
-        assert!(console.cpu.z());
-        assert!(!console.cpu.n());
+        assert!(console.cpu.flags.contains(Flags::CARRY));
+        assert!(console.cpu.flags.contains(Flags::ZERO));
+        assert!(!console.cpu.flags.contains(Flags::NEGATIVE));
 
         step(&mut console, &opcodes)?;
         let result = console.bus.read_u8(0x20);
         assert_eq!(result, 0b1000_0000);
-        assert!(!console.cpu.c());
-        assert!(!console.cpu.z());
-        assert!(console.cpu.n());
+        assert!(!console.cpu.flags.contains(Flags::CARRY));
+        assert!(!console.cpu.flags.contains(Flags::ZERO));
+        assert!(console.cpu.flags.contains(Flags::NEGATIVE));
         Ok(())
     }
 }

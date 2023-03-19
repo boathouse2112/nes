@@ -14,6 +14,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitflags"
+version = "2.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "487f1e0fcbe47deb8b0574e646def1c903389d95241dd1bbcc6ce4a715dfc0c1"
+
+[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -70,6 +76,7 @@ dependencies = [
 name = "nes"
 version = "0.1.0"
 dependencies = [
+ "bitflags",
  "log",
  "simple_logger",
 ]
