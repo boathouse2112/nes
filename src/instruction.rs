@@ -17,17 +17,27 @@ pub enum AddressingMode {
 }
 
 pub struct Instruction {
-    opcode: u8,
-    operation: &'static str,
-    addressing_mode: AddressingMode,
+    pub opcode: u8,
+    pub operation: &'static str,
+    pub addressing_mode: AddressingMode,
+    pub bytes: u8,
+    pub cycles: u8,
 }
 
 impl Instruction {
-    pub fn new(opcode: u8, operation: &'static str, addressing_mode: AddressingMode) -> Self {
+    pub fn new(
+        opcode: u8,
+        operation: &'static str,
+        addressing_mode: AddressingMode,
+        bytes: u8,
+        cycles: u8,
+    ) -> Self {
         Instruction {
             opcode,
             operation,
             addressing_mode,
+            bytes,
+            cycles,
         }
     }
 }
@@ -35,229 +45,217 @@ impl Instruction {
 pub fn instructions() -> Vec<Instruction> {
     vec![
         // Implied addressing mode
-        Instruction::new(0x0A, "ASL", AddressingMode::None),
-        Instruction::new(0x00, "BRK", AddressingMode::None),
-        Instruction::new(0x18, "CLC", AddressingMode::None),
-        Instruction::new(0xD8, "CLD", AddressingMode::None),
-        Instruction::new(0x58, "CLI", AddressingMode::None),
-        Instruction::new(0xB8, "CLV", AddressingMode::None),
-        Instruction::new(0xCA, "DEX", AddressingMode::None),
-        Instruction::new(0x88, "DEY", AddressingMode::None),
-        Instruction::new(0xE8, "INX", AddressingMode::None),
-        Instruction::new(0xC8, "INY", AddressingMode::None),
-        Instruction::new(0xAA, "TAX", AddressingMode::None),
-        Instruction::new(0x4A, "LSR", AddressingMode::None),
-        Instruction::new(0xEA, "NOP", AddressingMode::None),
-        Instruction::new(0x48, "PHA", AddressingMode::None),
-        Instruction::new(0x08, "PHP", AddressingMode::None),
-        Instruction::new(0x68, "PLA", AddressingMode::None),
-        Instruction::new(0x28, "PLP", AddressingMode::None),
-        Instruction::new(0x2A, "ROL", AddressingMode::None),
-        Instruction::new(0x6A, "ROR", AddressingMode::None),
-        Instruction::new(0x40, "RTI", AddressingMode::None),
-        Instruction::new(0x60, "RTS", AddressingMode::None),
-        Instruction::new(0x38, "SEC", AddressingMode::None),
-        Instruction::new(0xF8, "SED", AddressingMode::None),
-        Instruction::new(0x78, "SEI", AddressingMode::None),
-        Instruction::new(0xAA, "TAX", AddressingMode::None),
-        Instruction::new(0xA8, "TAY", AddressingMode::None),
-        Instruction::new(0xBA, "TSX", AddressingMode::None),
-        Instruction::new(0x8A, "TXA", AddressingMode::None),
-        Instruction::new(0x9A, "TXS", AddressingMode::None),
-        Instruction::new(0x98, "TYA", AddressingMode::None),
+        Instruction::new(0x0A, "ASL", AddressingMode::None, 1, 2),
+        Instruction::new(0x00, "BRK", AddressingMode::None, 1, 7),
+        Instruction::new(0x18, "CLC", AddressingMode::None, 1, 2),
+        Instruction::new(0xD8, "CLD", AddressingMode::None, 1, 2),
+        Instruction::new(0x58, "CLI", AddressingMode::None, 1, 2),
+        Instruction::new(0xB8, "CLV", AddressingMode::None, 1, 2),
+        Instruction::new(0xCA, "DEX", AddressingMode::None, 1, 2),
+        Instruction::new(0x88, "DEY", AddressingMode::None, 1, 2),
+        Instruction::new(0xE8, "INX", AddressingMode::None, 1, 2),
+        Instruction::new(0xC8, "INY", AddressingMode::None, 1, 2),
+        Instruction::new(0x4A, "LSR", AddressingMode::None, 1, 2),
+        Instruction::new(0xEA, "NOP", AddressingMode::None, 1, 2),
+        Instruction::new(0x48, "PHA", AddressingMode::None, 1, 3),
+        Instruction::new(0x08, "PHP", AddressingMode::None, 1, 3),
+        Instruction::new(0x68, "PLA", AddressingMode::None, 1, 4),
+        Instruction::new(0x28, "PLP", AddressingMode::None, 1, 4),
+        Instruction::new(0x2A, "ROL", AddressingMode::None, 1, 2),
+        Instruction::new(0x6A, "ROR", AddressingMode::None, 1, 2),
+        Instruction::new(0x40, "RTI", AddressingMode::None, 1, 6),
+        Instruction::new(0x60, "RTS", AddressingMode::None, 1, 6),
+        Instruction::new(0x38, "SEC", AddressingMode::None, 1, 2),
+        Instruction::new(0xF8, "SED", AddressingMode::None, 1, 2),
+        Instruction::new(0x78, "SEI", AddressingMode::None, 1, 2),
+        Instruction::new(0xAA, "TAX", AddressingMode::None, 1, 2),
+        Instruction::new(0xA8, "TAY", AddressingMode::None, 1, 2),
+        Instruction::new(0xBA, "TSX", AddressingMode::None, 1, 2),
+        Instruction::new(0x8A, "TXA", AddressingMode::None, 1, 2),
+        Instruction::new(0x9A, "TXS", AddressingMode::None, 1, 2),
+        Instruction::new(0x98, "TYA", AddressingMode::None, 1, 2),
         // Other addressing modes
         //      ADC
-        Instruction::new(0x69, "ADC", AddressingMode::Immediate),
-        Instruction::new(0x65, "ADC", AddressingMode::ZeroPage),
-        Instruction::new(0x75, "ADC", AddressingMode::ZeroPageX),
-        Instruction::new(0x6D, "ADC", AddressingMode::Absolute),
-        Instruction::new(0x7D, "ADC", AddressingMode::AbsoluteX),
-        Instruction::new(0x79, "ADC", AddressingMode::AbsoluteY),
-        Instruction::new(0x61, "ADC", AddressingMode::IndirectX),
-        Instruction::new(0x71, "ADC", AddressingMode::IndirectY),
-        //      ASL
-        Instruction::new(0x06, "ASL", AddressingMode::ZeroPage),
-        Instruction::new(0x16, "ASL", AddressingMode::ZeroPageX),
-        Instruction::new(0x0E, "ASL", AddressingMode::Absolute),
-        Instruction::new(0x1E, "ASL", AddressingMode::AbsoluteX),
+        Instruction::new(0x69, "ADC", AddressingMode::Immediate, 2, 2),
+        Instruction::new(0x65, "ADC", AddressingMode::ZeroPage, 2, 3),
+        Instruction::new(0x75, "ADC", AddressingMode::ZeroPageX, 2, 4),
+        Instruction::new(0x6D, "ADC", AddressingMode::Absolute, 3, 4),
+        Instruction::new(0x7D, "ADC", AddressingMode::AbsoluteX, 3, 4),
+        Instruction::new(0x79, "ADC", AddressingMode::AbsoluteY, 3, 4),
+        Instruction::new(0x61, "ADC", AddressingMode::IndirectX, 2, 6),
+        Instruction::new(0x71, "ADC", AddressingMode::IndirectY, 2, 5),
         //      AND
-        Instruction::new(0x29, "AND", AddressingMode::Immediate),
-        Instruction::new(0x25, "AND", AddressingMode::ZeroPage),
-        Instruction::new(0x35, "AND", AddressingMode::ZeroPageX),
-        Instruction::new(0x2D, "AND", AddressingMode::Absolute),
-        Instruction::new(0x3D, "AND", AddressingMode::AbsoluteX),
-        Instruction::new(0x39, "AND", AddressingMode::AbsoluteY),
-        Instruction::new(0x21, "AND", AddressingMode::IndirectX),
-        Instruction::new(0x31, "AND", AddressingMode::IndirectY),
+        Instruction::new(0x29, "AND", AddressingMode::Immediate, 2, 2),
+        Instruction::new(0x25, "AND", AddressingMode::ZeroPage, 2, 3),
+        Instruction::new(0x35, "AND", AddressingMode::ZeroPageX, 2, 4),
+        Instruction::new(0x2D, "AND", AddressingMode::Absolute, 3, 4),
+        Instruction::new(0x3D, "AND", AddressingMode::AbsoluteX, 3, 4),
+        Instruction::new(0x39, "AND", AddressingMode::AbsoluteY, 3, 4),
+        Instruction::new(0x21, "AND", AddressingMode::IndirectX, 2, 6),
+        Instruction::new(0x31, "AND", AddressingMode::IndirectY, 2, 5),
+        //      ASL
+        Instruction::new(0x06, "ASL", AddressingMode::ZeroPage, 2, 5),
+        Instruction::new(0x16, "ASL", AddressingMode::ZeroPageX, 2, 6),
+        Instruction::new(0x0E, "ASL", AddressingMode::Absolute, 3, 6),
+        Instruction::new(0x1E, "ASL", AddressingMode::AbsoluteX, 3, 7),
         //      BCC
-        Instruction::new(0x90, "BCC", AddressingMode::Relative),
+        Instruction::new(0x90, "BCC", AddressingMode::Relative, 2, 2),
         //      BCS
-        Instruction::new(0xB0, "BCS", AddressingMode::Relative),
+        Instruction::new(0xB0, "BCS", AddressingMode::Relative, 2, 2),
         //      BEQ
-        Instruction::new(0xF0, "BEQ", AddressingMode::Relative),
+        Instruction::new(0xF0, "BEQ", AddressingMode::Relative, 2, 2),
         //      BIT
-        Instruction::new(0x24, "BIT", AddressingMode::ZeroPage),
-        Instruction::new(0x2C, "BIT", AddressingMode::Absolute),
+        Instruction::new(0x24, "BIT", AddressingMode::ZeroPage, 2, 3),
+        Instruction::new(0x2C, "BIT", AddressingMode::Absolute, 3, 4),
         //      BMI
-        Instruction::new(0x30, "BMI", AddressingMode::Relative),
+        Instruction::new(0x30, "BMI", AddressingMode::Relative, 2, 2),
         //      BNE
-        Instruction::new(0xD0, "BEQ", AddressingMode::Relative),
+        Instruction::new(0xD0, "BNE", AddressingMode::Relative, 2, 2),
         //      BPL
-        Instruction::new(0x10, "BPL", AddressingMode::Relative),
+        Instruction::new(0x10, "BPL", AddressingMode::Relative, 2, 2),
         //      BVC
-        Instruction::new(0x50, "BVC", AddressingMode::Relative),
+        Instruction::new(0x50, "BVC", AddressingMode::Relative, 2, 2),
         //      BVS
-        Instruction::new(0x70, "BVS", AddressingMode::Relative),
+        Instruction::new(0x70, "BVS", AddressingMode::Relative, 2, 2),
         //      CMP
-        Instruction::new(0xC9, "CMP", AddressingMode::Immediate),
-        Instruction::new(0xC5, "CMP", AddressingMode::ZeroPage),
-        Instruction::new(0xD5, "CMP", AddressingMode::ZeroPageX),
-        Instruction::new(0xCD, "CMP", AddressingMode::Absolute),
-        Instruction::new(0xDD, "CMP", AddressingMode::AbsoluteX),
-        Instruction::new(0xD9, "CMP", AddressingMode::AbsoluteY),
-        Instruction::new(0xC1, "CMP", AddressingMode::IndirectX),
-        Instruction::new(0xD1, "CMP", AddressingMode::IndirectY),
+        Instruction::new(0xC9, "CMP", AddressingMode::Immediate, 2, 2),
+        Instruction::new(0xC5, "CMP", AddressingMode::ZeroPage, 2, 3),
+        Instruction::new(0xD5, "CMP", AddressingMode::ZeroPageX, 2, 4),
+        Instruction::new(0xCD, "CMP", AddressingMode::Absolute, 3, 4),
+        Instruction::new(0xDD, "CMP", AddressingMode::AbsoluteX, 3, 4),
+        Instruction::new(0xD9, "CMP", AddressingMode::AbsoluteY, 3, 4),
+        Instruction::new(0xC1, "CMP", AddressingMode::IndirectX, 2, 6),
+        Instruction::new(0xD1, "CMP", AddressingMode::IndirectY, 2, 5),
         //      CPX
-        Instruction::new(0xE0, "CPX", AddressingMode::Immediate),
-        Instruction::new(0xE4, "CPX", AddressingMode::ZeroPage),
-        Instruction::new(0xEC, "CPX", AddressingMode::Absolute),
+        Instruction::new(0xE0, "CPX", AddressingMode::Immediate, 2, 2),
+        Instruction::new(0xE4, "CPX", AddressingMode::ZeroPage, 2, 3),
+        Instruction::new(0xEC, "CPX", AddressingMode::Absolute, 3, 4),
         //      CPY
-        Instruction::new(0xC0, "CPY", AddressingMode::Immediate),
-        Instruction::new(0xC4, "CPY", AddressingMode::ZeroPage),
-        Instruction::new(0xCC, "CPY", AddressingMode::Absolute),
+        Instruction::new(0xC0, "CPY", AddressingMode::Immediate, 2, 2),
+        Instruction::new(0xC4, "CPY", AddressingMode::ZeroPage, 2, 3),
+        Instruction::new(0xCC, "CPY", AddressingMode::Absolute, 3, 4),
         //      DEC
-        Instruction::new(0xC0, "DEC", AddressingMode::ZeroPage),
-        Instruction::new(0xC4, "DEC", AddressingMode::ZeroPageX),
-        Instruction::new(0xCC, "DEC", AddressingMode::Absolute),
-        Instruction::new(0xCC, "DEC", AddressingMode::AbsoluteX),
+        Instruction::new(0xC6, "DEC", AddressingMode::ZeroPage, 2, 5),
+        Instruction::new(0xD6, "DEC", AddressingMode::ZeroPageX, 2, 6),
+        Instruction::new(0xCE, "DEC", AddressingMode::Absolute, 3, 6),
+        Instruction::new(0xDE, "DEC", AddressingMode::AbsoluteX, 3, 7),
         //      EOR
-        Instruction::new(0x49, "EOR", AddressingMode::Immediate),
-        Instruction::new(0x45, "EOR", AddressingMode::ZeroPage),
-        Instruction::new(0x55, "EOR", AddressingMode::ZeroPageX),
-        Instruction::new(0x4D, "EOR", AddressingMode::Absolute),
-        Instruction::new(0x5D, "EOR", AddressingMode::AbsoluteX),
-        Instruction::new(0x59, "EOR", AddressingMode::AbsoluteY),
-        Instruction::new(0x41, "EOR", AddressingMode::IndirectX),
-        Instruction::new(0x51, "EOR", AddressingMode::IndirectY),
+        Instruction::new(0x49, "EOR", AddressingMode::Immediate, 2, 2),
+        Instruction::new(0x45, "EOR", AddressingMode::ZeroPage, 2, 3),
+        Instruction::new(0x55, "EOR", AddressingMode::ZeroPageX, 2, 4),
+        Instruction::new(0x4D, "EOR", AddressingMode::Absolute, 3, 4),
+        Instruction::new(0x5D, "EOR", AddressingMode::AbsoluteX, 3, 4),
+        Instruction::new(0x59, "EOR", AddressingMode::AbsoluteY, 3, 4),
+        Instruction::new(0x41, "EOR", AddressingMode::IndirectX, 2, 6),
+        Instruction::new(0x51, "EOR", AddressingMode::IndirectY, 2, 5),
         //      INC
-        Instruction::new(0xE6, "INC", AddressingMode::ZeroPage),
-        Instruction::new(0xF6, "INC", AddressingMode::ZeroPageX),
-        Instruction::new(0xEE, "INC", AddressingMode::Absolute),
-        Instruction::new(0xFE, "INC", AddressingMode::AbsoluteX),
+        Instruction::new(0xE6, "INC", AddressingMode::ZeroPage, 2, 5),
+        Instruction::new(0xF6, "INC", AddressingMode::ZeroPageX, 2, 6),
+        Instruction::new(0xEE, "INC", AddressingMode::Absolute, 3, 6),
+        Instruction::new(0xFE, "INC", AddressingMode::AbsoluteX, 3, 7),
         //      JMP
-        Instruction::new(0x4C, "JMP", AddressingMode::Absolute),
-        Instruction::new(0x6C, "JMP", AddressingMode::Indirect),
+        Instruction::new(0x4C, "JMP", AddressingMode::Absolute, 3, 3),
+        Instruction::new(0x6C, "JMP", AddressingMode::Indirect, 3, 5),
         //      JSR
-        Instruction::new(0x20, "JSR", AddressingMode::Absolute),
+        Instruction::new(0x20, "JSR", AddressingMode::Absolute, 3, 6),
         //      LDA
-        Instruction::new(0xA9, "LDA", AddressingMode::Immediate),
-        Instruction::new(0xA5, "LDA", AddressingMode::ZeroPage),
-        Instruction::new(0xB5, "LDA", AddressingMode::ZeroPageX),
-        Instruction::new(0xAD, "LDA", AddressingMode::Absolute),
-        Instruction::new(0xBD, "LDA", AddressingMode::AbsoluteX),
-        Instruction::new(0xB9, "LDA", AddressingMode::AbsoluteY),
-        Instruction::new(0xA1, "LDA", AddressingMode::IndirectX),
-        Instruction::new(0xB1, "LDA", AddressingMode::IndirectY),
+        Instruction::new(0xA9, "LDA", AddressingMode::Immediate, 2, 2),
+        Instruction::new(0xA5, "LDA", AddressingMode::ZeroPage, 2, 3),
+        Instruction::new(0xB5, "LDA", AddressingMode::ZeroPageX, 2, 4),
+        Instruction::new(0xAD, "LDA", AddressingMode::Absolute, 3, 4),
+        Instruction::new(0xBD, "LDA", AddressingMode::AbsoluteX, 3, 4),
+        Instruction::new(0xB9, "LDA", AddressingMode::AbsoluteY, 3, 4),
+        Instruction::new(0xA1, "LDA", AddressingMode::IndirectX, 2, 6),
+        Instruction::new(0xB1, "LDA", AddressingMode::IndirectY, 2, 5),
         //      LDX
-        Instruction::new(0xA2, "LDX", AddressingMode::Immediate),
-        Instruction::new(0xA6, "LDX", AddressingMode::ZeroPage),
-        Instruction::new(0xB6, "LDX", AddressingMode::ZeroPageY),
-        Instruction::new(0xAE, "LDX", AddressingMode::Absolute),
-        Instruction::new(0xBE, "LDX", AddressingMode::AbsoluteY),
+        Instruction::new(0xA2, "LDX", AddressingMode::Immediate, 2, 2),
+        Instruction::new(0xA6, "LDX", AddressingMode::ZeroPage, 2, 3),
+        Instruction::new(0xB6, "LDX", AddressingMode::ZeroPageY, 2, 4),
+        Instruction::new(0xAE, "LDX", AddressingMode::Absolute, 3, 4),
+        Instruction::new(0xBE, "LDX", AddressingMode::AbsoluteY, 3, 4),
         //      LDY
-        Instruction::new(0xA0, "LDY", AddressingMode::Immediate),
-        Instruction::new(0xA4, "LDY", AddressingMode::ZeroPage),
-        Instruction::new(0xB4, "LDY", AddressingMode::ZeroPageX),
-        Instruction::new(0xAC, "LDY", AddressingMode::Absolute),
-        Instruction::new(0xBC, "LDY", AddressingMode::AbsoluteX),
-        //      LDY
-        Instruction::new(0xA4, "LDY", AddressingMode::ZeroPage),
-        Instruction::new(0xB4, "LDY", AddressingMode::ZeroPageX),
-        Instruction::new(0xAC, "LDY", AddressingMode::Absolute),
-        Instruction::new(0xBC, "LDY", AddressingMode::AbsoluteX),
+        Instruction::new(0xA0, "LDY", AddressingMode::Immediate, 2, 2),
+        Instruction::new(0xA4, "LDY", AddressingMode::ZeroPage, 2, 3),
+        Instruction::new(0xB4, "LDY", AddressingMode::ZeroPageX, 2, 4),
+        Instruction::new(0xAC, "LDY", AddressingMode::Absolute, 3, 4),
+        Instruction::new(0xBC, "LDY", AddressingMode::AbsoluteX, 3, 4),
         //      LSR
-        Instruction::new(0x46, "LSR", AddressingMode::ZeroPage),
-        Instruction::new(0x56, "LSR", AddressingMode::ZeroPageX),
-        Instruction::new(0x4E, "LSR", AddressingMode::Absolute),
-        Instruction::new(0x5E, "LSR", AddressingMode::AbsoluteX),
+        Instruction::new(0x46, "LSR", AddressingMode::ZeroPage, 2, 5),
+        Instruction::new(0x56, "LSR", AddressingMode::ZeroPageX, 2, 6),
+        Instruction::new(0x4E, "LSR", AddressingMode::Absolute, 3, 6),
+        Instruction::new(0x5E, "LSR", AddressingMode::AbsoluteX, 3, 7),
         //      ORA
-        Instruction::new(0x09, "ORA", AddressingMode::Immediate),
-        Instruction::new(0x05, "ORA", AddressingMode::ZeroPage),
-        Instruction::new(0x15, "ORA", AddressingMode::ZeroPageX),
-        Instruction::new(0x0D, "ORA", AddressingMode::Absolute),
-        Instruction::new(0x1D, "ORA", AddressingMode::AbsoluteX),
-        Instruction::new(0x19, "ORA", AddressingMode::AbsoluteY),
-        Instruction::new(0x01, "ORA", AddressingMode::IndirectX),
-        Instruction::new(0x11, "ORA", AddressingMode::IndirectY),
+        Instruction::new(0x09, "ORA", AddressingMode::Immediate, 2, 2),
+        Instruction::new(0x05, "ORA", AddressingMode::ZeroPage, 2, 3),
+        Instruction::new(0x15, "ORA", AddressingMode::ZeroPageX, 2, 4),
+        Instruction::new(0x0D, "ORA", AddressingMode::Absolute, 3, 4),
+        Instruction::new(0x1D, "ORA", AddressingMode::AbsoluteX, 3, 4),
+        Instruction::new(0x19, "ORA", AddressingMode::AbsoluteY, 3, 4),
+        Instruction::new(0x01, "ORA", AddressingMode::IndirectX, 2, 6),
+        Instruction::new(0x11, "ORA", AddressingMode::IndirectY, 2, 5),
         //      ROL
-        Instruction::new(0x26, "ROL", AddressingMode::ZeroPage),
-        Instruction::new(0x36, "ROL", AddressingMode::ZeroPageX),
-        Instruction::new(0x2E, "ROL", AddressingMode::Absolute),
-        Instruction::new(0x3E, "ROL", AddressingMode::AbsoluteX),
+        Instruction::new(0x26, "ROL", AddressingMode::ZeroPage, 2, 5),
+        Instruction::new(0x36, "ROL", AddressingMode::ZeroPageX, 2, 6),
+        Instruction::new(0x2E, "ROL", AddressingMode::Absolute, 3, 6),
+        Instruction::new(0x3E, "ROL", AddressingMode::AbsoluteX, 3, 7),
         //      ROR
-        Instruction::new(0x66, "ROR", AddressingMode::ZeroPage),
-        Instruction::new(0x76, "ROR", AddressingMode::ZeroPageX),
-        Instruction::new(0x6E, "ROR", AddressingMode::Absolute),
-        Instruction::new(0x7E, "ROR", AddressingMode::AbsoluteX),
+        Instruction::new(0x66, "ROR", AddressingMode::ZeroPage, 2, 5),
+        Instruction::new(0x76, "ROR", AddressingMode::ZeroPageX, 2, 6),
+        Instruction::new(0x6E, "ROR", AddressingMode::Absolute, 3, 6),
+        Instruction::new(0x7E, "ROR", AddressingMode::AbsoluteX, 3, 7),
         //      SBC
-        Instruction::new(0xE9, "SBC", AddressingMode::Immediate),
-        Instruction::new(0xE5, "SBC", AddressingMode::ZeroPage),
-        Instruction::new(0xF5, "SBC", AddressingMode::ZeroPageX),
-        Instruction::new(0xED, "SBC", AddressingMode::Absolute),
-        Instruction::new(0xFD, "SBC", AddressingMode::AbsoluteX),
-        Instruction::new(0xF9, "SBC", AddressingMode::AbsoluteY),
-        Instruction::new(0xE1, "SBC", AddressingMode::IndirectX),
-        Instruction::new(0xF1, "SBC", AddressingMode::IndirectY),
+        Instruction::new(0xE9, "SBC", AddressingMode::Immediate, 2, 2),
+        Instruction::new(0xE5, "SBC", AddressingMode::ZeroPage, 2, 3),
+        Instruction::new(0xF5, "SBC", AddressingMode::ZeroPageX, 2, 4),
+        Instruction::new(0xED, "SBC", AddressingMode::Absolute, 3, 4),
+        Instruction::new(0xFD, "SBC", AddressingMode::AbsoluteX, 3, 4),
+        Instruction::new(0xF9, "SBC", AddressingMode::AbsoluteY, 3, 4),
+        Instruction::new(0xE1, "SBC", AddressingMode::IndirectX, 2, 6),
+        Instruction::new(0xF1, "SBC", AddressingMode::IndirectY, 2, 5),
         //      STA
-        Instruction::new(0x85, "STA", AddressingMode::ZeroPage),
-        Instruction::new(0x95, "STA", AddressingMode::ZeroPageX),
-        Instruction::new(0x8D, "STA", AddressingMode::Absolute),
-        Instruction::new(0x9D, "STA", AddressingMode::AbsoluteX),
-        Instruction::new(0x99, "STA", AddressingMode::AbsoluteY),
-        Instruction::new(0x81, "STA", AddressingMode::IndirectX),
-        Instruction::new(0x91, "STA", AddressingMode::IndirectY),
+        Instruction::new(0x85, "STA", AddressingMode::ZeroPage, 2, 3),
+        Instruction::new(0x95, "STA", AddressingMode::ZeroPageX, 2, 4),
+        Instruction::new(0x8D, "STA", AddressingMode::Absolute, 3, 4),
+        Instruction::new(0x9D, "STA", AddressingMode::AbsoluteX, 3, 5),
+        Instruction::new(0x99, "STA", AddressingMode::AbsoluteY, 3, 5),
+        Instruction::new(0x81, "STA", AddressingMode::IndirectX, 2, 6),
+        Instruction::new(0x91, "STA", AddressingMode::IndirectY, 2, 6),
         //      STX
-        Instruction::new(0x86, "STX", AddressingMode::ZeroPage),
-        Instruction::new(0x96, "STX", AddressingMode::ZeroPageY),
-        Instruction::new(0x8E, "STX", AddressingMode::Absolute),
+        Instruction::new(0x86, "STX", AddressingMode::ZeroPage, 2, 3),
+        Instruction::new(0x96, "STX", AddressingMode::ZeroPageY, 2, 4),
+        Instruction::new(0x8E, "STX", AddressingMode::Absolute, 3, 4),
         //      STY
-        Instruction::new(0x84, "STY", AddressingMode::ZeroPage),
-        Instruction::new(0x94, "STY", AddressingMode::ZeroPageX),
-        Instruction::new(0x8C, "STY", AddressingMode::Absolute),
+        Instruction::new(0x84, "STY", AddressingMode::ZeroPage, 2, 3),
+        Instruction::new(0x94, "STY", AddressingMode::ZeroPageX, 2, 4),
+        Instruction::new(0x8C, "STY", AddressingMode::Absolute, 3, 4),
     ]
 }
 
-pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> Result<(), Error> {
+pub fn step(
+    Console { cpu, bus }: &mut Console,
+    instructions: &Vec<Instruction>,
+) -> Result<(), Error> {
     let opcode = bus.read_u8(cpu.pc);
     cpu.pc += 1;
 
     // Logs instruction name
-    fn read_address(
-        cpu: &mut Cpu,
-        bus: &mut Bus,
-        mode: AddressingMode,
-        operation: &str,
-    ) -> Result<u16, Error> {
+    fn read_address(cpu: &mut Cpu, bus: &mut Bus, mode: AddressingMode) -> Result<u16, Error> {
         match mode {
             AddressingMode::Immediate => {
                 let address = cpu.pc;
-                let value = bus.read_u8(address);
                 cpu.pc += 1;
-                log::info!("{} #{:X}", operation, value);
 
                 Ok(address)
             }
             AddressingMode::ZeroPage => {
                 let address = bus.read_u8(cpu.pc);
                 cpu.pc += 1;
-                log::info!("{} ${:X}", operation, address);
 
                 Ok(address as u16)
             }
             AddressingMode::ZeroPageX => {
                 let mut address = bus.read_u8(cpu.pc);
                 cpu.pc += 1;
-                log::info!("{} ${:X},X", operation, address);
 
                 address = address.wrapping_add(cpu.x);
                 Ok(address as u16)
@@ -265,30 +263,25 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
             AddressingMode::ZeroPageY => {
                 let mut address = bus.read_u8(cpu.pc);
                 cpu.pc += 1;
-                log::info!("{} ${:X},Y", operation, address);
 
                 address = address.wrapping_add(cpu.y);
                 Ok(address as u16)
             }
             AddressingMode::Relative => {
                 let address = cpu.pc;
-                let value = bus.read_i8(address);
                 cpu.pc += 1;
-                log::info!("{} #{:+X}", operation, value);
 
                 Ok(address)
             }
             AddressingMode::Absolute => {
                 let address = bus.read_u16(cpu.pc);
                 cpu.pc += 2;
-                log::info!("{} ${:X}", operation, address);
 
                 Ok(address)
             }
             AddressingMode::AbsoluteX => {
                 let mut address = bus.read_u16(cpu.pc);
                 cpu.pc += 2;
-                log::info!("{} ${:X},X", operation, address);
 
                 address = address.wrapping_add(cpu.x as u16);
                 Ok(address)
@@ -296,7 +289,6 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
             AddressingMode::AbsoluteY => {
                 let mut address = bus.read_u16(cpu.pc);
                 cpu.pc += 2;
-                log::info!("{} ${:X},Y", operation, address);
 
                 address = address.wrapping_add(cpu.y as u16);
                 Ok(address)
@@ -304,28 +296,25 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
             AddressingMode::Indirect => {
                 let indirect_address = bus.read_u16(cpu.pc);
                 cpu.pc += 2;
-                log::info!("{} (${:X})", operation, indirect_address);
 
-                let address = bus.read_u16(indirect_address);
+                let address = bus.read_u16_wrap_page(indirect_address);
                 Ok(address)
             }
             AddressingMode::IndirectX => {
                 let mut indirect_address = bus.read_u8(cpu.pc);
                 cpu.pc += 1;
-                log::info!("{} (${:X},X)", operation, indirect_address);
 
                 // Read the final address from memory[indirect_address + x]
                 indirect_address = indirect_address.wrapping_add(cpu.x);
-                let address = bus.read_u16(indirect_address as u16);
+                let address = bus.read_u16_wrap_page(indirect_address as u16);
                 Ok(address)
             }
             AddressingMode::IndirectY => {
                 let indirect_address = bus.read_u8(cpu.pc);
                 cpu.pc += 1;
-                log::info!("{} (${:X}),Y", operation, indirect_address);
 
                 // The final address is (memory[indirect_address]) + y
-                let mut address = bus.read_u16(indirect_address as u16);
+                let mut address = bus.read_u16_wrap_page(indirect_address as u16);
                 address = address.wrapping_add(cpu.y as u16);
                 Ok(address)
             }
@@ -335,7 +324,7 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
         }
     }
 
-    let instruction = opcodes
+    let instruction = instructions
         .iter()
         .find(|&instruction| instruction.opcode == opcode)
         .unwrap();
@@ -343,7 +332,6 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
     match instruction.addressing_mode {
         AddressingMode::None => {
             // Execute immediately.
-            log::info!("{}", instruction.operation);
 
             match instruction.operation {
                 "ASL" => {
@@ -359,29 +347,31 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                     cpu.set_n(negative);
                 }
                 "BRK" => {
-                    todo!("PC and processor status are pushed to stack?");
-                    // cpu.set_b(true);
+                    cpu.push_stack_u16(bus, cpu.pc);
+                    cpu.push_stack_u8(bus, cpu.flags);
+                    cpu.pc = bus.read_u16(0xFFFE);
+                    cpu.set_b(true);
                 }
                 "CLC" => {
                     // Clear carry flag
                     cpu.set_c(false);
                 }
                 "CLD" => {
-                    // Clear carry flag
+                    // Clear decimal flag
                     cpu.set_d(false);
                 }
                 "CLI" => {
-                    // Clear carry flag
+                    // Clear interrupt flag
                     cpu.set_i(false);
                 }
                 "CLV" => {
-                    // Clear carry flag
+                    // Clear overflow flag
                     cpu.set_v(false);
                 }
                 "DEX" => {
                     // Decrement X
                     let value = cpu.x;
-                    let result = value - 1;
+                    let result = value.wrapping_sub(1);
                     cpu.x = result;
 
                     let zero = result == 0;
@@ -392,7 +382,7 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                 "DEY" => {
                     // Decrement Y
                     let value = cpu.y;
-                    let result = value - 1;
+                    let result = value.wrapping_sub(1);
                     cpu.y = result;
 
                     let zero = result == 0;
@@ -401,7 +391,7 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                     cpu.set_n(negative);
                 }
                 "INX" => {
-                    let result = cpu.x + 1;
+                    let result = cpu.x.wrapping_add(1);
                     cpu.x = result;
 
                     let zero = result == 0;
@@ -410,7 +400,7 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                     cpu.set_n(negative);
                 }
                 "INY" => {
-                    let result = cpu.y + 1;
+                    let result = cpu.y.wrapping_add(1);
                     cpu.y = result;
 
                     let zero = result == 0;
@@ -430,13 +420,15 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                     cpu.set_z(zero);
                     cpu.set_n(negative);
                 }
+                "NOP" => {}
                 "PHA" => {
                     // Push A to stack
                     cpu.push_stack_u8(bus, cpu.a);
                 }
                 "PHP" => {
                     // Push flags to stack
-                    cpu.push_stack_u8(bus, cpu.flags);
+                    let value = cpu.flags | 0b0011_0000; // PHP pushes with bits 4 and 5 true
+                    cpu.push_stack_u8(bus, value);
                 }
                 "PLA" => {
                     // Pull stack to A
@@ -450,7 +442,8 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                 }
                 "PLP" => {
                     // Pull stack to flags
-                    cpu.flags = cpu.pull_stack_u8(bus)?;
+                    let value = cpu.pull_stack_u8(bus)?;
+                    cpu.flags = value & 0b1110_1111 | 0b0010_0000; // PLP sets bit 4 to 0, bit 5 to 1
                 }
                 "ROL" => {
                     // Rotate A left
@@ -483,11 +476,12 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                     cpu.set_n(negative);
                 }
                 "RTI" => {
-                    cpu.flags = cpu.pull_stack_u8(bus)?;
+                    cpu.flags = cpu.pull_stack_u8(bus)? & 0b1110_1111 | 0b0010_0000;
                     cpu.pc = cpu.pull_stack_u16(bus)?;
                 }
                 "RTS" => {
                     cpu.pc = cpu.pull_stack_u16(bus)?;
+                    cpu.pc += 1;
                 }
                 "SEC" => {
                     cpu.set_c(true);
@@ -553,8 +547,7 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
         }
         // Load a value based on the addressing mode, and then execute
         _ => {
-            let address =
-                read_address(cpu, bus, instruction.addressing_mode, instruction.operation)?;
+            let address = read_address(cpu, bus, instruction.addressing_mode)?;
 
             match instruction.operation {
                 "ADC" => {
@@ -565,13 +558,9 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                     let (result, result_carry) = acc_value.carrying_add(memory_value, carry);
                     cpu.a = result;
 
-                    let should_be_negative = (acc_value as i32)
-                        .carrying_add(memory_value as i32, carry)
-                        .0
-                        < 0;
                     let zero = result == 0;
+                    let overflow = (acc_value as i8).checked_add(memory_value as i8).is_none();
                     let negative = (result as i8) < 0;
-                    let overflow = negative != should_be_negative;
                     cpu.set_c(result_carry);
                     cpu.set_z(zero);
                     cpu.set_v(overflow);
@@ -579,12 +568,11 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                 }
                 "AND" => {
                     let value = bus.read_u8(address);
-                    let acc = cpu.a;
-                    let result = acc & value;
+                    let result = cpu.a & value;
                     cpu.a = result;
 
                     let zero = result == 0;
-                    let negative = (value as i8) < 0;
+                    let negative = (result as i8) < 0;
                     cpu.set_z(zero);
                     cpu.set_n(negative);
                 }
@@ -612,7 +600,7 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                     // Branch if carry flag is set
                     let offset = bus.read_i8(address);
                     if cpu.c() {
-                        cpu.pc = (cpu.pc as i16 + offset as i16) as u16
+                        cpu.pc = (cpu.pc as i32 + offset as i32) as u16
                     }
                 }
                 "BEQ" => {
@@ -628,8 +616,8 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                     let result = cpu.a & value;
 
                     let zero = result == 0;
-                    let overflow = (result & 0b0100_0000) != 0; // Yeah, overflow is set to bit 6. Idk.
-                    let negative = (result & 0b1000_0000) != 0;
+                    let overflow = (value & 0b0100_0000) != 0; // Overflow -> bit 6
+                    let negative = (value & 0b1000_0000) != 0; // Negative -> bit 7
                     cpu.set_z(zero);
                     cpu.set_v(overflow);
                     cpu.set_n(negative);
@@ -665,7 +653,7 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                 "BVS" => {
                     // Branch if overflow flag is set
                     let offset = bus.read_i8(address);
-                    if cpu.n() {
+                    if cpu.v() {
                         cpu.pc = (cpu.pc as i16 + offset as i16) as u16
                     }
                 }
@@ -673,45 +661,42 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                     // Set flags based on A - M
                     let acc = cpu.a;
                     let value = bus.read_u8(address);
-                    let result = acc - value;
+                    let (result, borrow) = acc.borrowing_sub(value, false);
 
-                    let carry = acc > value;
                     let zero = acc == value;
                     let negative = (result as i8) < 0;
-                    cpu.set_c(carry);
+                    cpu.set_c(!borrow);
                     cpu.set_z(zero);
                     cpu.set_n(negative);
                 }
                 "CPX" => {
-                    // Set flags based on A - M
+                    // Set flags based on X - M
                     let x = cpu.x;
                     let value = bus.read_u8(address);
-                    let result = x - value;
+                    let (result, borrow) = x.borrowing_sub(value, false);
 
-                    let carry = x > value;
                     let zero = x == value;
                     let negative = (result as i8) < 0;
-                    cpu.set_c(carry);
+                    cpu.set_c(!borrow);
                     cpu.set_z(zero);
                     cpu.set_n(negative);
                 }
                 "CPY" => {
-                    // Set flags based on A - M
+                    // Set flags based on Y - M
                     let y = cpu.y;
                     let value = bus.read_u8(address);
-                    let result = y - value;
+                    let (result, borrow) = y.borrowing_sub(value, false);
 
-                    let carry = y > value;
                     let zero = y == value;
                     let negative = (result as i8) < 0;
-                    cpu.set_c(carry);
+                    cpu.set_c(!borrow);
                     cpu.set_z(zero);
                     cpu.set_n(negative);
                 }
                 "DEC" => {
                     // Decrement memory
                     let value = bus.read_u8(address);
-                    let result = value - 1;
+                    let result = value.wrapping_sub(1);
                     bus.write_u8(address, result);
 
                     let zero = result == 0;
@@ -734,7 +719,7 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                 "INC" => {
                     // Increment memory
                     let value = bus.read_u8(address);
-                    let result = value + 1;
+                    let result = value.wrapping_add(1);
                     bus.write_u8(address, result);
 
                     let zero = result == 0;
@@ -744,12 +729,11 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                 }
                 "JMP" => {
                     // Jump to location
-                    let value = bus.read_u16(address);
-                    cpu.pc = value;
+                    cpu.pc = address;
                 }
                 "JSR" => {
                     // Jump to subroutine. Push PC to the stack, and jump to address
-                    cpu.push_stack_u16(bus, cpu.pc);
+                    cpu.push_stack_u16(bus, cpu.pc - 1);
                     cpu.pc = address;
                 }
                 "LDA" => {
@@ -797,6 +781,7 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                 "ORA" => {
                     let value = bus.read_u8(address);
                     let result = cpu.a | value;
+                    cpu.a = result;
 
                     let zero = result == 0;
                     let negative = (result as i8) < 0;
@@ -838,17 +823,13 @@ pub fn step(Console { cpu, bus }: &mut Console, opcodes: &Vec<Instruction>) -> R
                     let memory_value = bus.read_u8(address);
                     let carry = cpu.c();
 
-                    let (result, result_carry) = acc_value.borrowing_sub(memory_value, !carry);
+                    let (result, borrow) = acc_value.borrowing_sub(memory_value, !carry);
                     cpu.a = result;
 
-                    let should_be_negative = (acc_value as i32)
-                        .borrowing_sub(memory_value as i32, !carry)
-                        .0
-                        < 0;
                     let zero = result == 0;
+                    let (_, overflow) = (acc_value as i8).borrowing_sub(memory_value as i8, !carry);
                     let negative = (result as i8) < 0;
-                    let overflow = should_be_negative != negative;
-                    cpu.set_c(result_carry);
+                    cpu.set_c(!borrow);
                     cpu.set_z(zero);
                     cpu.set_v(overflow);
                     cpu.set_n(negative);

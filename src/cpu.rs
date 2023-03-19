@@ -1,4 +1,8 @@
-use crate::{bus::Bus, config::ROM_START, util::Error};
+use crate::{
+    bus::Bus,
+    config::{CPU_FLAG_START_VALUE, CPU_SP_START_VALUE, ROM_START},
+    util::Error,
+};
 
 pub struct Cpu {
     pub pc: u16,
@@ -13,11 +17,11 @@ impl Cpu {
     pub fn new() -> Self {
         Cpu {
             pc: ROM_START as u16,
-            sp: 0,
+            sp: CPU_SP_START_VALUE,
             a: 0,
             x: 0,
             y: 0,
-            flags: 0,
+            flags: CPU_FLAG_START_VALUE,
         }
     }
 
@@ -113,25 +117,61 @@ impl Cpu {
     }
 
     pub fn pull_stack_u8(&mut self, bus: &mut Bus) -> Result<u8, Error> {
-        let value = bus.read_u8(self.sp as u16);
-        self.sp -= 1;
+        self.sp += 1;
+        let address = 0x0100 | self.sp as u16;
+        let value = bus.read_u8(address);
         Ok(value)
     }
 
+    /*
+    SP=FD
+
+    0x01FD
+    0x01FE  BC
+    0x01FF  AB
+
+    pull_stack(SP)
+    -> ABCD
+
+    SP=FF
+
+    0x01FD
+    0x01FE
+    0x01FF
+    */
     pub fn pull_stack_u16(&mut self, bus: &mut Bus) -> Result<u16, Error> {
-        let value = bus.read_u16(self.sp as u16);
-        self.sp -= 2;
+        self.sp += 2;
+        let address = (0x0100 | self.sp as u16) - 1;
+        let value = bus.read_u16(address);
         Ok(value)
     }
 
     pub fn push_stack_u8(&mut self, bus: &mut Bus, value: u8) {
-        bus.write_u8(self.sp as u16, value);
-        self.sp += 1;
+        let address = 0x0100 | self.sp as u16;
+        bus.write_u8(address, value);
+        self.sp -= 1;
     }
 
+    /*
+    SP=FF
+
+    0x01FD
+    0x01FE
+    0x01FF
+
+    push_stack(SP, 0xABCD)
+    ->
+
+    SP=FD
+
+    0x01FD
+    0x01FE  CD
+    0x01FF  AB
+    */
     pub fn push_stack_u16(&mut self, bus: &mut Bus, value: u16) {
-        bus.write_u16(self.sp as u16, value);
-        self.sp += 2;
+        let address = (0x0100 | self.sp as u16) - 1;
+        bus.write_u16(address, value);
+        self.sp -= 2;
     }
 }
 

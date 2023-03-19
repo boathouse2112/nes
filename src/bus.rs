@@ -1,7 +1,7 @@
 use crate::{
     config::{
-        PPU_REGISTERS_MIRRORS_END, PPU_REGISTERS_START, PROGRAM_ROM_PAGE_SIZE, RAM_MIRRORS_END,
-        RAM_START, ROM_END, ROM_START,
+        CPU_PAGE_SIZE, PPU_REGISTERS_MIRRORS_END, PPU_REGISTERS_START, PROGRAM_ROM_PAGE_SIZE,
+        RAM_MIRRORS_END, RAM_START, ROM_END, ROM_START,
     },
     rom::Rom,
 };
@@ -66,6 +66,14 @@ impl Bus {
         u16::from_le_bytes([low_byte, high_byte])
     }
 
+    pub fn read_u16_wrap_page(&self, address: u16) -> u16 {
+        let low_byte = self.read_u8(address);
+        let page_start = (address / CPU_PAGE_SIZE) * CPU_PAGE_SIZE;
+        let high_byte_address = page_start + ((address + 1) % CPU_PAGE_SIZE);
+        let high_byte = self.read_u8(high_byte_address);
+        u16::from_le_bytes([low_byte, high_byte])
+    }
+
     pub fn write_u8(&mut self, address: u16, value: u8) {
         match address {
             RAM_START..=RAM_MIRRORS_END => {
@@ -90,8 +98,8 @@ impl Bus {
     }
 
     pub fn write_u16(&mut self, address: u16, value: u16) {
-        let [byte_1, byte_2] = value.to_le_bytes();
-        self.write_u8(address, byte_1);
-        self.write_u8(address + 1, byte_2);
+        let [low_byte, high_byte] = value.to_le_bytes();
+        self.write_u8(address, low_byte);
+        self.write_u8(address + 1, high_byte);
     }
 }
