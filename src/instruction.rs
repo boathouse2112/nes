@@ -324,6 +324,19 @@ pub fn step(
         }
     }
 
+    /*
+     * Set flags based on (lhs - rhs)
+     */
+    fn compare(lhs: u8, rhs: u8, cpu: &mut Cpu) {
+        let (result, borrow) = lhs.borrowing_sub(rhs, false);
+
+        let zero = lhs == rhs;
+        let negative = (result as i8) < 0;
+        cpu.set_c(!borrow);
+        cpu.set_z(zero);
+        cpu.set_n(negative);
+    }
+
     let instruction = instructions
         .iter()
         .find(|&instruction| instruction.opcode == opcode)
@@ -659,39 +672,18 @@ pub fn step(
                 }
                 "CMP" => {
                     // Set flags based on A - M
-                    let acc = cpu.a;
-                    let value = bus.read_u8(address);
-                    let (result, borrow) = acc.borrowing_sub(value, false);
-
-                    let zero = acc == value;
-                    let negative = (result as i8) < 0;
-                    cpu.set_c(!borrow);
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    let memory_value = bus.read_u8(address);
+                    compare(cpu.a, memory_value, cpu);
                 }
                 "CPX" => {
                     // Set flags based on X - M
-                    let x = cpu.x;
-                    let value = bus.read_u8(address);
-                    let (result, borrow) = x.borrowing_sub(value, false);
-
-                    let zero = x == value;
-                    let negative = (result as i8) < 0;
-                    cpu.set_c(!borrow);
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    let memory_value = bus.read_u8(address);
+                    compare(cpu.x, memory_value, cpu);
                 }
                 "CPY" => {
                     // Set flags based on Y - M
-                    let y = cpu.y;
-                    let value = bus.read_u8(address);
-                    let (result, borrow) = y.borrowing_sub(value, false);
-
-                    let zero = y == value;
-                    let negative = (result as i8) < 0;
-                    cpu.set_c(!borrow);
-                    cpu.set_z(zero);
-                    cpu.set_n(negative);
+                    let memory_value = bus.read_u8(address);
+                    compare(cpu.y, memory_value, cpu);
                 }
                 "DEC" => {
                     // Decrement memory
