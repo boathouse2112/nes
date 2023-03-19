@@ -332,6 +332,38 @@ pub fn step(
     }
 
     /**
+     * Increment the given register
+     *  N Z C I D V
+     *  ? ? - - - -
+     */
+    fn increment(register: &mut u8, flags: &mut Flags) {
+        let value = *register;
+        let result = value.wrapping_add(1);
+        *register = result;
+
+        let zero = result == 0;
+        let negative = (result as i8) < 0;
+        flags.set(Flags::ZERO, zero);
+        flags.set(Flags::NEGATIVE, negative);
+    }
+
+    /**
+     * Decrement the given register
+     *  N Z C I D V
+     *  ? ? - - - -
+     */
+    fn decrement(register: &mut u8, flags: &mut Flags) {
+        let value = *register;
+        let result = value.wrapping_sub(1);
+        *register = result;
+
+        let zero = result == 0;
+        let negative = (result as i8) < 0;
+        flags.set(Flags::ZERO, zero);
+        flags.set(Flags::NEGATIVE, negative);
+    }
+
+    /**
      * Set flags based on (lhs - rhs)
      *  N Z C I D V
      *  - - - - - -
@@ -415,46 +447,10 @@ pub fn step(
                     // Clear overflow flag
                     cpu.flags.set(Flags::OVERFLOW, false);
                 }
-                "DEX" => {
-                    // Decrement X
-                    let value = cpu.x;
-                    let result = value.wrapping_sub(1);
-                    cpu.x = result;
-
-                    let zero = result == 0;
-                    let negative = (result as i8) < 0;
-                    cpu.flags.set(Flags::ZERO, zero);
-                    cpu.flags.set(Flags::NEGATIVE, negative);
-                }
-                "DEY" => {
-                    // Decrement Y
-                    let value = cpu.y;
-                    let result = value.wrapping_sub(1);
-                    cpu.y = result;
-
-                    let zero = result == 0;
-                    let negative = (result as i8) < 0;
-                    cpu.flags.set(Flags::ZERO, zero);
-                    cpu.flags.set(Flags::NEGATIVE, negative);
-                }
-                "INX" => {
-                    let result = cpu.x.wrapping_add(1);
-                    cpu.x = result;
-
-                    let zero = result == 0;
-                    let negative = (result as i8) < 0;
-                    cpu.flags.set(Flags::ZERO, zero);
-                    cpu.flags.set(Flags::NEGATIVE, negative);
-                }
-                "INY" => {
-                    let result = cpu.y.wrapping_add(1);
-                    cpu.y = result;
-
-                    let zero = result == 0;
-                    let negative = (result as i8) < 0;
-                    cpu.flags.set(Flags::ZERO, zero);
-                    cpu.flags.set(Flags::NEGATIVE, negative);
-                }
+                "DEX" => decrement(&mut cpu.x, &mut cpu.flags),
+                "DEY" => decrement(&mut cpu.y, &mut cpu.flags),
+                "INX" => increment(&mut cpu.x, &mut cpu.flags),
+                "INY" => increment(&mut cpu.y, &mut cpu.flags),
                 "LSR" => {
                     let value = cpu.a;
                     let result = value >> 1;
