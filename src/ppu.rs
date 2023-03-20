@@ -1,7 +1,4 @@
-use crate::{
-    config::{PPU_MIRROR_DOWN_MASK, PPU_REGISTERS_MIRRORS_END},
-    rom::{Mirroring, Rom},
-};
+use crate::rom::{Mirroring, Rom};
 use bitflags::bitflags;
 
 const CHR_ROM_START: u16 = 0x0000;
@@ -98,22 +95,29 @@ impl MaskRegister {
 
 bitflags! {
 
-    // 7  bit  0
+    //     7  bit  0
     // ---- ----
-    // BGRs bMmG
+    // VSO. ....
     // |||| ||||
-    // |||| |||+- Greyscale (0: normal color, 1: produce a greyscale display)
-    // |||| ||+-- 1: Show background in leftmost 8 pixels of screen, 0: Hide
-    // |||| |+--- 1: Show sprites in leftmost 8 pixels of screen, 0: Hide
-    // |||| +---- 1: Show background
-    // |||+------ 1: Show sprites
-    // ||+------- Emphasize red (green on PAL/Dendy)
-    // |+-------- Emphasize green (red on PAL/Dendy)
-    // +--------- Emphasize blue
+    // |||+-++++- PPU open bus. Returns stale PPU bus contents.
+    // ||+------- Sprite overflow. The intent was for this flag to be set
+    // ||         whenever more than eight sprites appear on a scanline, but a
+    // ||         hardware bug causes the actual behavior to be more complicated
+    // ||         and generate false positives as well as false negatives; see
+    // ||         PPU sprite evaluation. This flag is set during sprite
+    // ||         evaluation and cleared at dot 1 (the second dot) of the
+    // ||         pre-render line.
+    // |+-------- Sprite 0 Hit.  Set when a nonzero pixel of sprite 0 overlaps
+    // |          a nonzero background pixel; cleared at dot 1 of the pre-render
+    // |          line.  Used for raster timing.
+    // +--------- Vertical blank has started (0: not in vblank; 1: in vblank).
+    //            Set at dot 1 of line 241 (the line *after* the post-render
+    //            line); cleared after reading $2002 and at dot 1 of the
+    //            pre-render line.
 
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     pub struct StatusRegister: u8 {
-       const A                  = 0b1000_0000;
+       const VBLANK_STARTED     = 0b1000_0000;
        const B        	        = 0b0100_0000;
        const C                  = 0b0010_0000;
        const D 	                = 0b0001_0000;
@@ -237,7 +241,6 @@ pub struct Ppu {
     pub palette_table: [u8; 32],
     pub vram: [u8; 2048],
     pub oam: [u8; 256],
-
     pub mirroring: Mirroring,
 
     pub control: ControlRegister,
@@ -247,7 +250,11 @@ pub struct Ppu {
     pub scroll: ScrollRegister,
     pub vram_address: AddressRegister,
 
+    pub nmi_interrupt: bool,
+
     data_buffer: u8,
+    cycles: u32,
+    scanline: u32,
 }
 
 impl Ppu {
@@ -267,12 +274,27 @@ impl Ppu {
             scroll: ScrollRegister::new(),
             vram_address: AddressRegister::new(),
 
+            nmi_interrupt: false,
+
             data_buffer: 0,
+            cycles: 0,
+            scanline: 0,
         }
     }
 
+    /**
+     * Writes to bus::$2000
+     */
     pub fn write_to_control(&mut self, value: u8) {
+        let nmi_before_write = self.control.contains(ControlRegister::GENERATE_NMI);
         self.control = ControlRegister::from_bits_retain(value);
+        let nmi_after_write = self.control.contains(ControlRegister::GENERATE_NMI);
+        if !nmi_before_write
+            && nmi_after_write
+            && self.status.contains(StatusRegister::VBLANK_STARTED)
+        {
+            self.nmi_interrupt = true;
+        }
     }
 
     /**
@@ -367,6 +389,30 @@ impl Ppu {
             0x3F00..=0x3FFF => self.palette_table[(address - 0x3f00) as usize],
             _ => panic!("Attempt to read from mirrored PPU address: {:04X}", address),
         }
+    }
+
+    pub fn tick(&mut self, cycles: u32) -> bool {
+        self.cycles += cycles;
+        if self.cycles >= 341 {
+            self.cycles -= 341;
+            self.scanline += 1;
+        }
+
+        if self.scanline == 241 {
+            if self.control.contains(ControlRegister::GENERATE_NMI) {
+                self.status.set(StatusRegister::VBLANK_STARTED, true);
+                self.nmi_interrupt = true;
+                todo!("Trigger NMI interrupt");
+            }
+        }
+
+        if self.scanline >= 262 {
+            self.scanline = 0;
+            self.status.set(StatusRegister::VBLANK_STARTED, false);
+            return true;
+        }
+
+        false
     }
 
     fn increment_address(&mut self) {

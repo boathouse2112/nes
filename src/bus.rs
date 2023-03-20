@@ -130,4 +130,17 @@ impl Bus {
         self.write_u8(address, low_byte);
         self.write_u8(address + 1, high_byte);
     }
+
+    pub fn tick(&mut self, cpu_cycles: u32) {
+        self.ppu.tick(cpu_cycles * 3);
+    }
+
+    pub fn poll_nmi_status(&mut self) -> bool {
+        if self.ppu.nmi_interrupt {
+            self.ppu.nmi_interrupt = false;
+            true
+        } else {
+            false
+        }
+    }
 }
