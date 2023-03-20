@@ -434,3 +434,12 @@ impl Ppu {
         nametable_start + nametable_offset
     }
 }
+
+pub fn poll_nmi_status(ppu: &mut Ppu) -> bool {
+    if ppu.nmi_interrupt {
+        ppu.nmi_interrupt = false;
+        true
+    } else {
+        false
+    }
+}
