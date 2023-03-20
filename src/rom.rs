@@ -2,12 +2,14 @@ use crate::config::{CHARACTER_ROM_PAGE_SIZE, PROGRAM_ROM_PAGE_SIZE};
 
 const I_NES_IDENTIFIER_BYTES: [u8; 4] = [0x4E, 0x45, 0x53, 0x1A];
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Mirroring {
     Vertical,
     Horizontal,
     FourScreen,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Mapper {
     Zero,
 }
@@ -23,6 +25,7 @@ impl TryFrom<u8> for Mapper {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Rom {
     pub program_rom: Vec<u8>,
     pub character_rom: Vec<u8>,

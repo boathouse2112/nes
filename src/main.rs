@@ -4,6 +4,7 @@ mod config;
 mod console;
 mod cpu;
 mod instruction;
+mod ppu;
 mod rom;
 mod util;
 
@@ -13,7 +14,7 @@ use simple_logger::SimpleLogger;
 use std::fs;
 use util::Error;
 
-use crate::{bus::Bus, console::Console, instruction::AddressingMode, rom::Rom};
+use crate::{bus::Bus, console::Console, instruction::AddressingMode, ppu::Ppu, rom::Rom};
 
 fn run_with_callback<F>(
     console: &mut Console,
@@ -180,11 +181,12 @@ fn main() -> Result<(), Error> {
     // Load ROM
     let rom_bytes = fs::read("roms/nestest.nes")?;
     let rom = Rom::new(&rom_bytes)?;
+    let ppu = Ppu::new(&rom);
 
     let instructions = instruction::instructions();
     let mut console = Console {
         cpu: Cpu::new(),
-        bus: Bus::new(rom),
+        bus: Bus::new(ppu, rom),
     };
 
     // console.memory.load_rom();
