@@ -36,8 +36,8 @@ bitflags! {
     pub struct ControlRegister: u8 {
        const GENERATE_NMI               	= 0b1000_0000;
        const MASTER_SLAVE_SELECT        	= 0b0100_0000;
-       const SPRITE_SIZE                	= 0b0010_0000;
-       const BACKGROUND_PATTERN_ADDRESS 	= 0b0001_0000;
+       const SPRITE_PATTERN_OFFSET          = 0b0010_0000;
+       const BACKGROUND_PATTERN_OFFSET 	    = 0b0001_0000;
        const SPRITE_PATTERN_ADDRESS     	= 0b0000_1000;
        const VRAM_ADDRESS_INCREMENT     	= 0b0000_0100;
        const NAMETABLE_1                	= 0b0000_0010;
@@ -48,6 +48,14 @@ bitflags! {
 impl ControlRegister {
     pub fn new() -> Self {
         ControlRegister::from_bits_retain(0b0000_0000)
+    }
+
+    pub fn background_pattern_offset(&self) -> u16 {
+        if self.contains(Self::BACKGROUND_PATTERN_OFFSET) {
+            0x1000
+        } else {
+            0
+        }
     }
 
     pub fn vram_address_increment_amount(&self) -> u8 {
