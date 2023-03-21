@@ -1,8 +1,6 @@
 use crate::{
     config::{CPU_PAGE_SIZE, PROGRAM_ROM_PAGE_SIZE},
     console::Console,
-    ppu::Ppu,
-    rom::Rom,
 };
 
 const RAM_START: u16 = 0x0000;
@@ -115,10 +113,6 @@ pub fn write_u8(console: &mut Console, address: u16, value: u8) {
             panic!("Invalid attempt to write at {:X}", address)
         }
     }
-}
-
-pub fn write_i8(console: &mut Console, address: u16, value: i8) {
-    write_u8(console, address, value as u8)
 }
 
 pub fn write_u16(console: &mut Console, address: u16, value: u16) {

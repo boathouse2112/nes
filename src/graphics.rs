@@ -2,16 +2,12 @@ use sdl2::{
     event::Event,
     keyboard::Keycode,
     pixels::PixelFormatEnum,
-    render::{Canvas, Texture, TextureCreator},
+    render::{Canvas, TextureCreator},
     video::{Window, WindowContext},
     EventPump,
 };
 
-use crate::{
-    palette,
-    ppu::{ControlRegister, Ppu},
-    util::Error,
-};
+use crate::{palette, ppu::Ppu, util::Error};
 
 const TILE_LENGTH: u16 = 8;
 const PATTERN_TABLE_TILE_LENGTH: u16 = TILE_LENGTH * 2;
@@ -45,55 +41,6 @@ impl Frame {
         }
     }
 }
-
-// pub fn show_tiles(chr_rom: &Vec<u8>) -> Frame {
-//     let mut frame = Frame::new();
-//     // Pixel width = 8 *
-//     fn show_bank(chr_rom: &Vec<u8>, frame: &mut Frame, bank_1: bool) {
-//         let tiles: u16 = chr_rom.len() as u16 / (TILE_LENGTH * 2);
-//         let bank_offset = if bank_1 { 0x1000 } else { 0 };
-//         let y_offset = if bank_1 {
-//             TILE_LENGTH * tiles / 0x20
-//         } else {
-//             0
-//         };
-//         for tile_n in 0..tiles {
-//             let tile_start = bank_offset + tile_n * PATTERN_TABLE_TILE_LENGTH;
-//             let tile_end =
-//                 bank_offset + tile_n * PATTERN_TABLE_TILE_LENGTH + PATTERN_TABLE_TILE_LENGTH - 1;
-//             let tile = &chr_rom[tile_start as usize..=tile_end as usize];
-
-//             let tile_col = tile_n % SCREEN_WIDTH_TILES;
-//             let tile_row = tile_n / SCREEN_WIDTH_TILES;
-//             let tile_y = tile_row * TILE_LENGTH;
-//             let tile_x = tile_col * TILE_LENGTH;
-
-//             for y in 0..TILE_LENGTH {
-//                 let mut upper = tile[y as usize];
-//                 let mut lower = tile[(y + TILE_LENGTH) as usize];
-
-//                 for x in (0..TILE_LENGTH).rev() {
-//                     let value = (1 & upper) << 1 | (1 & lower);
-//                     upper = upper >> 1;
-//                     lower = lower >> 1;
-//                     let rgb = match value {
-//                         0 => palette::SYSTEM_PALLETE[0x01],
-//                         1 => palette::SYSTEM_PALLETE[0x23],
-//                         2 => palette::SYSTEM_PALLETE[0x27],
-//                         3 => palette::SYSTEM_PALLETE[0x30],
-//                         _ => panic!("can't be"),
-//                     };
-//                     frame.set_pixel(tile_x + x, y_offset + tile_y + y, rgb)
-//                 }
-//             }
-//         }
-//     }
-
-//     // show_bank(chr_rom, &mut frame, false);
-//     show_bank(chr_rom, &mut frame, true);
-
-//     frame
-// }
 
 pub struct Graphics {
     frame: Frame,
