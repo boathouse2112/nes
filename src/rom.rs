@@ -1,4 +1,4 @@
-use crate::config::{CHARACTER_ROM_PAGE_SIZE, PROGRAM_ROM_PAGE_SIZE};
+use crate::config::{CHR_ROM_PAGE_SIZE, PROGRAM_ROM_PAGE_SIZE};
 
 const I_NES_IDENTIFIER_BYTES: [u8; 4] = [0x4E, 0x45, 0x53, 0x1A];
 
@@ -28,7 +28,7 @@ impl TryFrom<u8> for Mapper {
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub struct Rom {
     pub program_rom: Vec<u8>,
-    pub character_rom: Vec<u8>,
+    pub chr_rom: Vec<u8>,
     pub mirroring: Mirroring,
     pub mapper: Mapper,
 }
@@ -37,7 +37,7 @@ impl Rom {
     pub fn new(rom_bytes: &Vec<u8>) -> Result<Rom, String> {
         let i_nes_identifier_bytes = &rom_bytes[0..4];
         let program_rom_banks = rom_bytes[4];
-        let character_rom_banks = rom_bytes[5];
+        let chr_rom_banks = rom_bytes[5];
         let control_byte_1 = rom_bytes[6];
         let control_byte_2 = rom_bytes[7];
 
@@ -62,19 +62,17 @@ impl Rom {
         };
 
         let program_rom_size = program_rom_banks as usize * PROGRAM_ROM_PAGE_SIZE as usize;
-        let character_rom_size = character_rom_banks as usize * CHARACTER_ROM_PAGE_SIZE as usize;
+        let chr_rom_size = chr_rom_banks as usize * CHR_ROM_PAGE_SIZE as usize;
 
         let has_trainer = ((control_byte_1 & 0b0000_0100) >> 3) != 0;
 
         let program_rom_start = 16 + if has_trainer { 500 } else { 0 };
-        let character_rom_start = program_rom_start + program_rom_size;
+        let chr_rom_start = program_rom_start + program_rom_size;
 
         Ok(Rom {
             program_rom: rom_bytes[program_rom_start..(program_rom_start + program_rom_size)]
                 .to_vec(),
-            character_rom: rom_bytes
-                [character_rom_start..(character_rom_start + character_rom_size)]
-                .to_vec(),
+            chr_rom: rom_bytes[chr_rom_start..(chr_rom_start + chr_rom_size)].to_vec(),
             mirroring,
             mapper,
         })

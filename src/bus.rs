@@ -102,7 +102,14 @@ pub fn write_u8(console: &mut Console, address: u16, value: u8) {
                     0x2005 => console.ppu.write_to_scroll(value),
                     0x2006 => console.ppu.write_to_vram_address(value),
                     0x2007 => console.ppu.write_to_data(value),
-                    0x4014 => console.ppu.write_to_oam_dma(value, &console.bus.cpu_ram),
+                    0x4014 => {
+                        let mut data: [u8; 256] = [0; 256];
+                        let page_start = (value as u16) << 8;
+                        for byte in 0..256 {
+                            data[byte as usize] = read_u8(console, page_start + byte)
+                        }
+                        console.ppu.write_to_oam_dma(&data);
+                    },
                     _ => panic!("Attempt to write to invalid address in ppu range: {:40X}, mirrored-down to: {:40X}", address, mirrored_down)
                 }
         }

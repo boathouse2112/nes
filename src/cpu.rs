@@ -1,6 +1,6 @@
 use crate::{
     bus,
-    config::{CPU_FLAG_START_VALUE, CPU_SP_START_VALUE},
+    config::{CPU_FLAGS_START_VALUE, CPU_SP_START_VALUE},
     console::Console,
     instruction::{AddressingMode, Instruction},
     util::Error,
@@ -9,6 +9,8 @@ use bitflags::bitflags;
 
 const ROM_START: u16 = 0xC000;
 const STACK_PAGE_ADDRESS: u16 = 0x0100;
+
+const RESET_INTERRUPT_VECTOR_ADDRESS: u16 = 0xFFFC;
 
 bitflags! {
     #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -42,7 +44,7 @@ impl Cpu {
             a: 0,
             x: 0,
             y: 0,
-            flags: Flags::from_bits_retain(CPU_FLAG_START_VALUE),
+            flags: Flags::from_bits_retain(CPU_FLAGS_START_VALUE),
         }
     }
 }
@@ -85,7 +87,17 @@ pub fn push_stack_u16(console: &mut Console, value: u16) {
     console.cpu.sp -= 2;
 }
 
-pub fn interrupt_nmi(console: &mut Console) {
+// ==== Interrupts ====
+
+pub fn reset_interrupt(console: &mut Console) {
+    console.cpu.a = 0;
+    console.cpu.x = 0;
+    console.cpu.flags = Flags::from_bits_retain(CPU_FLAGS_START_VALUE);
+
+    console.cpu.pc = bus::read_u16(console, RESET_INTERRUPT_VECTOR_ADDRESS);
+}
+
+pub fn nmi_interrupt(console: &mut Console) {
     push_stack_u16(console, console.cpu.pc);
     let mut flags = console.cpu.flags.clone();
     flags = flags.union(Flags::BREAK).difference(Flags::BREAK_2);

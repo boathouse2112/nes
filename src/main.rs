@@ -20,16 +20,20 @@ use util::Error;
 
 use crate::{bus::Bus, console::Console, ppu::Ppu, rom::Rom};
 
-fn run_with_callback<F>(
+fn run_with_callbacks<PostResetFn, CallbackFn>(
     console: &mut Console,
     graphics: &mut Graphics,
     instructions: &Vec<Instruction>,
-    mut callback: F,
+    mut post_reset: PostResetFn,
+    mut callback: CallbackFn,
 ) -> Result<(), Error>
 where
-    F: FnMut(&mut Console, &Instruction),
+    PostResetFn: FnMut(&mut Console),
+    CallbackFn: FnMut(&mut Console, &Instruction),
 {
-    let mut cpu_cycles: u32 = 0;
+    cpu::reset_interrupt(console);
+    post_reset(console);
+
     loop {
         let opcode = bus::read_u8(console, console.cpu.pc);
         let instruction = instructions.iter().find(|&instr| instr.opcode == opcode);
@@ -41,14 +45,13 @@ where
         };
 
         if ppu::poll_nmi_status(&mut console.ppu) {
-            cpu::interrupt_nmi(console);
+            cpu::nmi_interrupt(console);
             graphics.render(&mut console.ppu)?;
         }
 
         callback(console, instruction);
         cpu::step(console, instruction)?;
-        cpu_cycles += instruction.cycles as u32;
-        console.ppu.tick(cpu_cycles * 3);
+        console.ppu.tick(instruction.cycles as u32 * 3);
     }
 }
 
@@ -57,8 +60,8 @@ fn main() -> Result<(), Error> {
     SimpleLogger::new().init().unwrap();
 
     // Load ROM
-    let rom_bytes = fs::read("roms/donkey_kong.nes")?;
-    // let rom_bytes = fs::read("roms/nestest.nes")?;
+    // let rom_bytes = fs::read("roms/donkey_kong.nes")?;
+    let rom_bytes = fs::read("roms/nestest.nes")?;
     let rom = Rom::new(&rom_bytes)?;
     let ppu = Ppu::new(&rom);
 
@@ -74,10 +77,13 @@ fn main() -> Result<(), Error> {
     // Init graphics
     let mut graphics = Graphics::new()?;
 
-    run_with_callback(
+    run_with_callbacks(
         &mut console,
         &mut graphics,
         &instructions,
+        move |console| {
+            // console.cpu.pc = 0xC000
+        },
         move |console, instruction| {
             println!("{}", debug::trace(console, instruction));
         },

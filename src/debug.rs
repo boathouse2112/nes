@@ -85,7 +85,10 @@ pub fn trace(console: &mut Console, instruction: &Instruction) -> String {
                 "JMP" | "JSR" => "".to_string(),
                 _ => {
                     let address = u16::from_le_bytes([instruction_bytes[1], instruction_bytes[2]]);
-                    let value = bus::read_u8(console, address);
+                    let value = match address {
+                        0x2000 | 0x2001 | 0x2003 | 0x2005 | 0x2006 | 0x4014 => 0,
+                        _ => bus::read_u8(console, address),
+                    };
                     format!(" = {:02X}", value)
                 }
             },
